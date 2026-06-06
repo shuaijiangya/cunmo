@@ -63,35 +63,6 @@ public class InventoryDeletionRepositoryImpl
         this.transactionMapper = transactionMapper;
     }
 
-    /** 将单个物品迁移到目标空间分类。 */
-    @Override
-    public void moveItem(
-            VaultId vaultId,
-            InventoryItemId itemId,
-            long targetSpaceId,
-            long targetCategoryId,
-            long operatorUserId) {
-        InventoryItemDO item = requireItemForUpdate(vaultId, itemId.value());
-        InventorySpaceDO targetSpace = requireSpace(vaultId, targetSpaceId);
-        InventoryCategoryDO targetCategory = requireCategory(
-                vaultId,
-                targetCategoryId);
-        requireBinding(vaultId, targetSpaceId, targetCategoryId);
-        assertCapacity(vaultId, targetSpaceId, targetCategoryId, 1);
-        moveOne(
-                vaultId,
-                item,
-                targetSpace,
-                targetCategory,
-                operatorUserId);
-        log.info(
-                "event=inventory_item_move stage=persistence_committed vaultId={} itemId={} targetSpaceId={} targetCategoryId={}",
-                vaultId.value(),
-                itemId.value(),
-                targetSpaceId,
-                targetCategoryId);
-    }
-
     /** 清空并逻辑删除单个物品。 */
     @Override
     public void deleteItem(

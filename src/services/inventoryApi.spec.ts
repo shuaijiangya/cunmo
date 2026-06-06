@@ -84,19 +84,4 @@ describe('inventoryApi', () => {
     });
   });
 
-  /**
-   * 验证物品迁移携带目标空间分类。
-   */
-  it('moves item to selected space and category', async () => {
-    const request = vi.fn().mockResolvedValue(undefined);
-    const api = createInventoryApi(request);
-
-    await api.moveItem(30, 11, 21);
-
-    expect(request).toHaveBeenCalledWith({
-      url: '/api/inventory/items/30/movement',
-      method: 'POST',
-      data: { targetSpaceId: 11, targetCategoryId: 21 }
-    });
-  });
 });

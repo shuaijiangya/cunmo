@@ -9,14 +9,6 @@ import cn.cunmo.domain.inventory.model.valueobject.VaultId;
  */
 public interface InventoryDeletionRepository {
 
-    /** 将单个物品迁移到目标空间分类。 */
-    void moveItem(
-            VaultId vaultId,
-            InventoryItemId itemId,
-            long targetSpaceId,
-            long targetCategoryId,
-            long operatorUserId);
-
     /** 清空并逻辑删除单个物品。 */
     void deleteItem(
             VaultId vaultId,

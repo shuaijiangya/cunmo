@@ -527,18 +527,6 @@ export const useInventoryStore = defineStore('inventory', {
     closeDeletionModal() {
       this.deletionModal = null;
     },
-    async moveInventoryItem(
-      itemId: number,
-      targetSpaceId: number,
-      targetCategoryId: number
-    ) {
-      await inventoryApi.moveItem(
-        itemId,
-        targetSpaceId,
-        targetCategoryId
-      );
-      await this.refreshAfterMutation();
-    },
     async deleteInventoryItem(itemId: number) {
       await inventoryApi.deleteItem(itemId);
       await this.refreshAfterMutation();

@@ -140,17 +140,6 @@ export const createInventoryApi = (request: RequestAdapter) => ({
       method: 'GET'
     }),
 
-  moveItem: (
-    itemId: number,
-    targetSpaceId: number,
-    targetCategoryId: number
-  ) =>
-    request<void>({
-      url: `/api/inventory/items/${itemId}/movement`,
-      method: 'POST',
-      data: { targetSpaceId, targetCategoryId }
-    }),
-
   deleteItem: (itemId: number) =>
     request<void>({
       url: `/api/inventory/items/${itemId}/deletion`,

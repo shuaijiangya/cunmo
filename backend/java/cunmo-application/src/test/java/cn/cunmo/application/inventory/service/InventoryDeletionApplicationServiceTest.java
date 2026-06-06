@@ -21,27 +21,6 @@ import org.junit.jupiter.api.Test;
 class InventoryDeletionApplicationServiceTest {
 
     /**
-     * 验证物品不能迁移到原空间和原分类。
-     */
-    @Test
-    void rejectsMovingItemToSameLocation() {
-        FakeInventoryRepository inventoryRepository =
-                new FakeInventoryRepository();
-        RecordingDeletionRepository deletionRepository =
-                new RecordingDeletionRepository();
-        InventoryDeletionApplicationService service =
-                new InventoryDeletionApplicationService(
-                        inventoryRepository,
-                        deletionRepository);
-
-        ApplicationException error = assertThrows(
-                ApplicationException.class,
-                () -> service.moveItem(7L, 1L, 10L, 20L));
-
-        assertEquals("SAME_SOURCE_AND_TARGET", error.code());
-    }
-
-    /**
      * 验证空间迁移策略必须提供目标空间。
      */
     @Test
@@ -215,18 +194,6 @@ class InventoryDeletionApplicationServiceTest {
     private static final class RecordingDeletionRepository
             implements InventoryDeletionRepository {
         private long deletedItemId;
-
-        /**
-         * 记录物品迁移。
-         */
-        @Override
-        public void moveItem(
-                VaultId vaultId,
-                InventoryItemId itemId,
-                long targetSpaceId,
-                long targetCategoryId,
-                long operatorUserId) {
-        }
 
         /**
          * 记录物品删除。

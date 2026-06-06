@@ -131,7 +131,6 @@ export interface DeletionModalState {
   targetId: number;
   targetName: string;
   spaceId?: number;
-  categoryId?: number;
 }
 
 export interface GlobalState {

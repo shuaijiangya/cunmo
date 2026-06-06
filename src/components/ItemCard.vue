@@ -32,8 +32,7 @@ const manageItem = () => {
     scope: 'item',
     targetId: props.item.id,
     targetName: props.item.name,
-    spaceId: props.item.spaceId,
-    categoryId: props.item.categoryId
+    spaceId: props.item.spaceId
   });
 };
 </script>

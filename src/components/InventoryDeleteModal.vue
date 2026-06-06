@@ -2,6 +2,10 @@
 import { computed, ref, watch } from 'vue';
 
 import { inventoryApi } from '@/services/inventoryApi';
+import {
+  deletionModeFor,
+  requiresMovementTarget
+} from '@/services/inventoryDeletionRules';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import type {
   DeletionStrategy,
@@ -20,6 +24,14 @@ const targetCategoryId = ref<number | null>(null);
 const destructiveConfirmed = ref(false);
 
 const state = computed(() => store.deletionModal);
+const deletionMode = computed(() =>
+  state.value
+    ? deletionModeFor(state.value.scope)
+    : 'STRATEGY_REQUIRED'
+);
+const isDirectItemDeletion = computed(
+  () => deletionMode.value === 'DIRECT_DELETE'
+);
 const spaces = computed(() =>
   Object.entries(store.spaceIds)
     .map(([code, id]) => ({
@@ -40,14 +52,7 @@ const categories = computed(() => {
   const modal = state.value;
   if (!modal) return [];
   if (modal.scope === 'item') {
-    const code = targetSpace.value?.code;
-    if (!code) return [];
-    return (store.categoriesBySpace[code] ?? [])
-      .filter(
-        (category) =>
-          targetSpaceId.value !== modal.spaceId ||
-          category.id !== modal.categoryId
-      );
+    return [];
   }
   if (modal.scope === 'category' && categoryAction.value === 'unbind') {
     const spaceCode = Object.entries(store.spaceIds).find(
@@ -175,11 +180,15 @@ const selectStrategy = (value: DeletionStrategy) => {
 const submit = async () => {
   const modal = state.value;
   if (!modal || submitting.value) return;
-  if (strategy.value === 'CLEAR_DELETE' && !destructiveConfirmed.value) {
+  if (
+    !isDirectItemDeletion.value &&
+    strategy.value === 'CLEAR_DELETE' &&
+    !destructiveConfirmed.value
+  ) {
     destructiveConfirmed.value = true;
     return;
   }
-  if (strategy.value === 'MOVE') {
+  if (requiresMovementTarget(modal.scope, strategy.value)) {
     if (modal.scope === 'space' && !targetSpaceId.value) {
       errorMessage.value = '没有可用的目标空间';
       return;
@@ -194,15 +203,7 @@ const submit = async () => {
   errorMessage.value = '';
   try {
     if (modal.scope === 'item') {
-      if (strategy.value === 'MOVE') {
-        await store.moveInventoryItem(
-          modal.targetId,
-          targetSpaceId.value as number,
-          targetCategoryId.value as number
-        );
-      } else {
-        await store.deleteInventoryItem(modal.targetId);
-      }
+      await store.deleteInventoryItem(modal.targetId);
     } else if (modal.scope === 'space') {
       await store.deleteInventorySpace(
         modal.targetId,
@@ -305,7 +306,7 @@ const submit = async () => {
           </button>
         </view>
 
-        <view class="grid grid-cols-2 gap-2">
+        <view v-if="!isDirectItemDeletion" class="grid grid-cols-2 gap-2">
           <button
             class="m-0 rounded-lg border py-3 text-xs leading-none"
             :class="strategy === 'MOVE' ? 'border-slate-900 bg-slate-900 font-bold text-white' : 'border-slate-200 bg-white text-slate-500'"
@@ -322,7 +323,10 @@ const submit = async () => {
           </button>
         </view>
 
-        <view v-if="strategy === 'MOVE'" class="space-y-3">
+        <view
+          v-if="!isDirectItemDeletion && strategy === 'MOVE'"
+          class="space-y-3"
+        >
           <picker
             v-if="state.scope === 'space' || state.scope === 'item'"
             mode="selector"
@@ -349,11 +353,15 @@ const submit = async () => {
         </view>
 
         <view
-          v-else
+          v-else-if="isDirectItemDeletion || strategy === 'CLEAR_DELETE'"
           class="rounded-xl border border-red-100 bg-red-50 px-4 py-3"
         >
           <text class="block text-xs font-bold text-red-600">
-            此操作会将受影响库存归零并永久隐藏对应结构。
+            {{
+              isDirectItemDeletion
+                ? '确认后将删除该物品并把当前库存归零。'
+                : '此操作会将受影响库存归零并永久隐藏对应结构。'
+            }}
           </text>
           <text class="mt-1 block text-[20rpx] text-red-400">
             流转记录会保留，本版本不提供回收站恢复。
@@ -367,7 +375,7 @@ const submit = async () => {
         <button
           class="m-0 w-full rounded-xl py-3 text-xs font-bold leading-none text-white disabled:opacity-40"
           :class="
-            strategy === 'CLEAR_DELETE'
+            isDirectItemDeletion || strategy === 'CLEAR_DELETE'
               ? 'bg-red-500'
               : 'bg-slate-900'
           "
@@ -377,6 +385,8 @@ const submit = async () => {
           {{
             submitting
               ? '处理中...'
+              : isDirectItemDeletion
+                ? '确认删除'
               : strategy === 'CLEAR_DELETE' && !destructiveConfirmed
                 ? '继续清空删除'
                 : strategy === 'CLEAR_DELETE'

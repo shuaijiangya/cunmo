@@ -1,7 +1,6 @@
 package cn.cunmo.application.inventory.service;
 
 import cn.cunmo.application.exception.ApplicationException;
-import cn.cunmo.domain.inventory.model.aggregate.InventoryItem;
 import cn.cunmo.domain.inventory.model.aggregate.InventoryVault;
 import cn.cunmo.domain.inventory.model.enums.DeletionStrategy;
 import cn.cunmo.domain.inventory.model.valueobject.InventoryItemId;
@@ -27,41 +26,6 @@ public class InventoryDeletionApplicationService {
             InventoryDeletionRepository deletionRepository) {
         this.inventoryRepository = inventoryRepository;
         this.deletionRepository = deletionRepository;
-    }
-
-    /** 将单个物品迁移到目标空间分类。 */
-    @Transactional
-    public void moveItem(
-            long userId,
-            long itemId,
-            long targetSpaceId,
-            long targetCategoryId) {
-        InventoryVault vault = inventoryRepository.lockVault(userId);
-        InventoryItem item = inventoryRepository.requireItem(
-                vault.id(),
-                InventoryItemId.of(itemId));
-        if (item.spaceId() == targetSpaceId
-                && item.categoryId() == targetCategoryId) {
-            throw new ApplicationException(
-                    "SAME_SOURCE_AND_TARGET",
-                    "目标空间和分类不能与当前位置相同");
-        }
-        log.info(
-                "event=inventory_item_move stage=validated userId={} itemId={} targetSpaceId={} targetCategoryId={}",
-                userId,
-                itemId,
-                targetSpaceId,
-                targetCategoryId);
-        deletionRepository.moveItem(
-                vault.id(),
-                item.id(),
-                targetSpaceId,
-                targetCategoryId,
-                userId);
-        log.info(
-                "event=inventory_item_move stage=application_completed userId={} itemId={}",
-                userId,
-                itemId);
     }
 
     /** 清空库存并逻辑删除单个物品。 */

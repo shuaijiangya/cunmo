@@ -6,7 +6,6 @@ import cn.cunmo.api.inventory.model.request.CreateInventoryItemRequest;
 import cn.cunmo.api.inventory.model.request.CreateSpaceRequest;
 import cn.cunmo.api.inventory.model.request.DeleteCategoryRequest;
 import cn.cunmo.api.inventory.model.request.DeleteSpaceRequest;
-import cn.cunmo.api.inventory.model.request.MoveInventoryItemRequest;
 import cn.cunmo.api.inventory.model.request.UnbindCategoryRequest;
 import cn.cunmo.api.inventory.model.request.UpdateCategorySpacesRequest;
 import cn.cunmo.api.inventory.model.response.CreatedIdResponse;
@@ -196,25 +195,6 @@ public class InventoryController {
         return inventoryService.previewItemDeletion(
                 currentUserProvider.requireUserId(),
                 itemId);
-    }
-
-    /** 将物品迁移到目标空间分类。 */
-    @PostMapping("/items/{itemId}/movement")
-    public void moveItem(
-            @PathVariable long itemId,
-            @Valid @RequestBody MoveInventoryItemRequest request) {
-        long userId = currentUserProvider.requireUserId();
-        log.info(
-                "event=inventory_item_move stage=http_request_accepted userId={} itemId={} targetSpaceId={} targetCategoryId={}",
-                userId,
-                itemId,
-                request.targetSpaceId(),
-                request.targetCategoryId());
-        deletionService.moveItem(
-                userId,
-                itemId,
-                request.targetSpaceId(),
-                request.targetCategoryId());
     }
 
     /** 清空并逻辑删除物品。 */

@@ -16,7 +16,6 @@ const inventoryApiMock = vi.hoisted(() => ({
   getItemDeletionPreview: vi.fn(),
   getSpaceDeletionPreview: vi.fn(),
   getCategoryDeletionPreview: vi.fn(),
-  moveItem: vi.fn(),
   deleteItem: vi.fn(),
   deleteSpace: vi.fn(),
   unbindCategory: vi.fn(),
