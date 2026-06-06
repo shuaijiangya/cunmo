@@ -7,6 +7,7 @@ import cn.cunmo.application.inventory.result.InventoryAnalyticsResult;
 import cn.cunmo.application.inventory.result.InventoryBootstrapResult;
 import cn.cunmo.application.inventory.result.InventoryCategoryResult;
 import cn.cunmo.application.inventory.result.InventoryItemResult;
+import cn.cunmo.application.inventory.result.InventoryDeletionPreviewResult;
 import cn.cunmo.application.inventory.result.InventorySpaceResult;
 import cn.cunmo.application.inventory.result.StockTransactionResult;
 import cn.cunmo.domain.inventory.model.valueobject.VaultId;
@@ -152,6 +153,58 @@ public class MybatisInventoryQueryService
                         size + 1),
                 size,
                 StockTransactionResult::id);
+    }
+
+    /** 查询物品删除影响预览。 */
+    @Override
+    public InventoryDeletionPreviewResult previewItemDeletion(
+            VaultId vaultId,
+            long itemId) {
+        return requirePreview(
+                queryMapper.selectItemDeletionPreview(
+                        vaultId.value(),
+                        itemId),
+                "ITEM_NOT_FOUND",
+                "库存物品不存在");
+    }
+
+    /** 查询空间删除影响预览。 */
+    @Override
+    public InventoryDeletionPreviewResult previewSpaceDeletion(
+            VaultId vaultId,
+            long spaceId) {
+        return requirePreview(
+                queryMapper.selectSpaceDeletionPreview(
+                        vaultId.value(),
+                        spaceId),
+                "SPACE_NOT_FOUND",
+                "库存空间不存在");
+    }
+
+    /** 查询分类删除或解绑影响预览。 */
+    @Override
+    public InventoryDeletionPreviewResult previewCategoryDeletion(
+            VaultId vaultId,
+            long categoryId,
+            Long spaceId) {
+        return requirePreview(
+                queryMapper.selectCategoryDeletionPreview(
+                        vaultId.value(),
+                        categoryId,
+                        spaceId),
+                "CATEGORY_NOT_FOUND",
+                "库存分类不存在");
+    }
+
+    /** 校验删除预览查询结果存在。 */
+    private InventoryDeletionPreviewResult requirePreview(
+            InventoryDeletionPreviewResult preview,
+            String code,
+            String message) {
+        if (preview == null) {
+            throw new ApplicationException(code, message);
+        }
+        return preview;
     }
 
     /**

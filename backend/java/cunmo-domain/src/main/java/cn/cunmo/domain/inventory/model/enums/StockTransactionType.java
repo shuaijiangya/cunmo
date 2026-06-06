@@ -6,5 +6,7 @@ package cn.cunmo.domain.inventory.model.enums;
 public enum StockTransactionType {
     IN,
     OUT,
-    WARN
+    WARN,
+    MOVE,
+    DELETE
 }

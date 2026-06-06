@@ -6,6 +6,7 @@ import cn.cunmo.application.inventory.result.CursorPageResult;
 import cn.cunmo.application.inventory.result.InventoryAnalyticsResult;
 import cn.cunmo.application.inventory.result.InventoryBootstrapResult;
 import cn.cunmo.application.inventory.result.InventoryItemResult;
+import cn.cunmo.application.inventory.result.InventoryDeletionPreviewResult;
 import cn.cunmo.application.inventory.result.StockTransactionResult;
 import cn.cunmo.domain.inventory.model.aggregate.InventoryItem;
 import cn.cunmo.domain.inventory.model.aggregate.InventoryVault;
@@ -223,6 +224,34 @@ public class InventoryApplicationService {
                 vault.id(),
                 cursor,
                 normalizeSize(size));
+    }
+
+    /** 查询物品删除影响预览。 */
+    public InventoryDeletionPreviewResult previewItemDeletion(
+            long userId,
+            long itemId) {
+        InventoryVault vault = repository.requireVault(userId);
+        return queryService.previewItemDeletion(vault.id(), itemId);
+    }
+
+    /** 查询空间删除影响预览。 */
+    public InventoryDeletionPreviewResult previewSpaceDeletion(
+            long userId,
+            long spaceId) {
+        InventoryVault vault = repository.requireVault(userId);
+        return queryService.previewSpaceDeletion(vault.id(), spaceId);
+    }
+
+    /** 查询分类删除或解绑影响预览。 */
+    public InventoryDeletionPreviewResult previewCategoryDeletion(
+            long userId,
+            long categoryId,
+            Long spaceId) {
+        InventoryVault vault = repository.requireVault(userId);
+        return queryService.previewCategoryDeletion(
+                vault.id(),
+                categoryId,
+                spaceId);
     }
 
     /**

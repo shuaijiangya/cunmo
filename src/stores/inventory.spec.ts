@@ -12,7 +12,15 @@ const inventoryApiMock = vi.hoisted(() => ({
   createCategory: vi.fn(),
   updateCategorySpaces: vi.fn(),
   createItem: vi.fn(),
-  adjustStock: vi.fn()
+  adjustStock: vi.fn(),
+  getItemDeletionPreview: vi.fn(),
+  getSpaceDeletionPreview: vi.fn(),
+  getCategoryDeletionPreview: vi.fn(),
+  moveItem: vi.fn(),
+  deleteItem: vi.fn(),
+  deleteSpace: vi.fn(),
+  unbindCategory: vi.fn(),
+  deleteCategory: vi.fn()
 }));
 
 vi.mock('@/services/inventoryApi', () => ({
@@ -222,5 +230,33 @@ describe('inventory store actions', () => {
     expect(store.currentUser).toBeNull();
     expect(store.items).toEqual([]);
     expect(storage.clearSession).toHaveBeenCalledOnce();
+  });
+
+  it('deletes an item and refreshes all dependent views', async () => {
+    const store = useInventoryStore();
+    store.currentFilter = { space: 'bedroom', cate: 'digital' };
+    inventoryApiMock.deleteItem.mockResolvedValue(undefined);
+
+    await store.deleteInventoryItem(31);
+
+    expect(inventoryApiMock.deleteItem).toHaveBeenCalledWith(31);
+    expect(inventoryApiMock.getBootstrap).toHaveBeenCalledOnce();
+    expect(inventoryApiMock.getItems).toHaveBeenCalledOnce();
+    expect(inventoryApiMock.getAnalytics).toHaveBeenCalledOnce();
+    expect(inventoryApiMock.getTransactions).toHaveBeenCalledOnce();
+  });
+
+  it('falls back to all filters after deleting active space', async () => {
+    const store = useInventoryStore();
+    store.currentFilter = { space: 'bedroom', cate: 'digital' };
+    inventoryApiMock.deleteSpace.mockResolvedValue(undefined);
+    inventoryApiMock.getBootstrap.mockResolvedValue({
+      ...bootstrap,
+      spaces: []
+    });
+
+    await store.deleteInventorySpace(11, 'CLEAR_DELETE');
+
+    expect(store.currentFilter).toEqual({ space: 'all', cate: 'all' });
   });
 });

@@ -2,8 +2,10 @@ import type {
   CursorPage,
   InventoryAnalytics,
   InventoryBootstrap,
+  InventoryDeletionPreview,
   InventoryItemMutationResponse,
   InventoryItemResponse,
+  DeletionStrategy,
   StockTransactionResponse
 } from '@/types/inventory';
 import { authHttpClient, type RequestOptions } from './httpClient';
@@ -113,6 +115,80 @@ export const createInventoryApi = (request: RequestAdapter) => ({
       url: `/api/inventory/items/${itemId}/adjustments`,
       method: 'POST',
       data: { delta, description }
+    }),
+
+  getItemDeletionPreview: (itemId: number) =>
+    request<InventoryDeletionPreview>({
+      url: `/api/inventory/items/${itemId}/deletion-preview`,
+      method: 'GET'
+    }),
+
+  getSpaceDeletionPreview: (spaceId: number) =>
+    request<InventoryDeletionPreview>({
+      url: `/api/inventory/spaces/${spaceId}/deletion-preview`,
+      method: 'GET'
+    }),
+
+  getCategoryDeletionPreview: (
+    categoryId: number,
+    spaceId?: number
+  ) =>
+    request<InventoryDeletionPreview>({
+      url: `/api/inventory/categories/${categoryId}/deletion-preview${queryString({
+        spaceId
+      })}`,
+      method: 'GET'
+    }),
+
+  moveItem: (
+    itemId: number,
+    targetSpaceId: number,
+    targetCategoryId: number
+  ) =>
+    request<void>({
+      url: `/api/inventory/items/${itemId}/movement`,
+      method: 'POST',
+      data: { targetSpaceId, targetCategoryId }
+    }),
+
+  deleteItem: (itemId: number) =>
+    request<void>({
+      url: `/api/inventory/items/${itemId}/deletion`,
+      method: 'POST'
+    }),
+
+  deleteSpace: (
+    spaceId: number,
+    strategy: DeletionStrategy,
+    targetSpaceId?: number
+  ) =>
+    request<void>({
+      url: `/api/inventory/spaces/${spaceId}/deletion`,
+      method: 'POST',
+      data: { strategy, targetSpaceId }
+    }),
+
+  unbindCategory: (
+    categoryId: number,
+    spaceId: number,
+    strategy: DeletionStrategy,
+    targetCategoryId?: number
+  ) =>
+    request<void>({
+      url: `/api/inventory/categories/${categoryId}/unbinding`,
+      method: 'POST',
+      data: { spaceId, strategy, targetCategoryId }
+    }),
+
+  deleteCategory: (
+    categoryId: number,
+    strategy: DeletionStrategy,
+    targetCategoryId?: number
+  ) =>
+    request<void>({
+      url: `/api/inventory/categories/${categoryId}/deletion`,
+      method: 'POST',
+      data: { strategy, targetCategoryId }
     })
 });
 

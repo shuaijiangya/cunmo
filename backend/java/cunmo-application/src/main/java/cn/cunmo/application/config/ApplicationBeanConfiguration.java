@@ -4,7 +4,9 @@ import cn.cunmo.application.user.port.AvatarStorage;
 import cn.cunmo.application.user.service.UserProfileApplicationService;
 import cn.cunmo.application.inventory.query.InventoryQueryService;
 import cn.cunmo.application.inventory.service.InventoryApplicationService;
+import cn.cunmo.application.inventory.service.InventoryDeletionApplicationService;
 import cn.cunmo.domain.auth.repository.UserRepository;
+import cn.cunmo.domain.inventory.repository.InventoryDeletionRepository;
 import cn.cunmo.domain.inventory.repository.InventoryRepository;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -49,5 +51,18 @@ public class ApplicationBeanConfiguration {
         return new InventoryApplicationService(
                 inventoryRepository,
                 inventoryQueryService);
+    }
+
+    /**
+     * 创建库存结构删除应用服务。
+     */
+    @Bean
+    InventoryDeletionApplicationService
+            inventoryDeletionApplicationService(
+                    InventoryRepository inventoryRepository,
+                    InventoryDeletionRepository deletionRepository) {
+        return new InventoryDeletionApplicationService(
+                inventoryRepository,
+                deletionRepository);
     }
 }

@@ -11,11 +11,11 @@ import cn.cunmo.domain.inventory.model.valueobject.VaultId;
 public final class InventoryItem {
     private final InventoryItemId id;
     private final VaultId vaultId;
-    private final long spaceId;
-    private final long categoryId;
+    private long spaceId;
+    private long categoryId;
     private final String name;
     private final String smallCategory;
-    private final String detailLocation;
+    private String detailLocation;
     private int quantity;
     private final int minimumQuantity;
     private final int version;
@@ -129,6 +129,37 @@ public final class InventoryItem {
                         ? StockTransactionType.IN
                         : StockTransactionType.OUT;
         return new StockAdjustment(delta, before, quantity, type);
+    }
+
+    /**
+     * 将物品迁移到目标空间分类，并把精准位置重置为待整理。
+     */
+    public InventoryMovement moveTo(
+            long targetSpaceId,
+            long targetCategoryId) {
+        if (targetSpaceId <= 0 || targetCategoryId <= 0) {
+            throw new IllegalArgumentException("目标空间和分类不能为空");
+        }
+        InventoryMovement movement = new InventoryMovement(
+                spaceId,
+                categoryId,
+                detailLocation,
+                targetSpaceId,
+                targetCategoryId,
+                "待整理");
+        spaceId = targetSpaceId;
+        categoryId = targetCategoryId;
+        detailLocation = "待整理";
+        return movement;
+    }
+
+    /**
+     * 清空当前库存并返回删除流水所需的数量变化。
+     */
+    public InventoryDeletion clearForDeletion() {
+        int before = quantity;
+        quantity = 0;
+        return new InventoryDeletion(-before, before, 0);
     }
 
     /**

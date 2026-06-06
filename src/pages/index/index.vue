@@ -5,6 +5,7 @@ import AxisTimeline from '@/components/AxisTimeline.vue';
 import BottomNav from '@/components/BottomNav.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import InventoryModals from '@/components/InventoryModals.vue';
+import InventoryDeleteModal from '@/components/InventoryDeleteModal.vue';
 import ItemList from '@/components/ItemList.vue';
 import LensView from '@/components/LensView.vue';
 import LoginOverlay from '@/components/LoginOverlay.vue';
@@ -55,5 +56,6 @@ onMounted(() => {
 
     <BottomNav />
     <InventoryModals />
+    <InventoryDeleteModal />
   </view>
 </template>

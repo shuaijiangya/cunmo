@@ -70,6 +70,39 @@ class InventoryItemTest {
     }
 
     /**
+     * 验证迁移物品会更新空间、分类并将精准位置重置为待整理。
+     */
+    @Test
+    void movesItemAndResetsDetailLocation() {
+        InventoryItem item = item(3, 1);
+
+        InventoryMovement movement = item.moveTo(11L, 21L);
+
+        assertEquals(10L, movement.sourceSpaceId());
+        assertEquals(20L, movement.sourceCategoryId());
+        assertEquals("默认位置", movement.sourceDetailLocation());
+        assertEquals(11L, item.spaceId());
+        assertEquals(21L, item.categoryId());
+        assertEquals("待整理", item.detailLocation());
+        assertEquals(3, item.quantity());
+    }
+
+    /**
+     * 验证清空删除会记录原库存并把当前库存归零。
+     */
+    @Test
+    void clearsQuantityForDeletion() {
+        InventoryItem item = item(3, 1);
+
+        InventoryDeletion deletion = item.clearForDeletion();
+
+        assertEquals(3, deletion.quantityBefore());
+        assertEquals(0, deletion.quantityAfter());
+        assertEquals(-3, deletion.delta());
+        assertEquals(0, item.quantity());
+    }
+
+    /**
      * 创建测试库存物品。
      */
     private InventoryItem item(int quantity, int minimumQuantity) {

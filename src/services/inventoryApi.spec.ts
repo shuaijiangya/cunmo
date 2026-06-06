@@ -46,4 +46,57 @@ describe('inventoryApi', () => {
       }
     });
   });
+
+  /**
+   * 验证分类解绑预览携带当前空间。
+   */
+  it('loads category unbinding preview for current space', async () => {
+    const request = vi.fn().mockResolvedValue({
+      targetId: 20,
+      targetName: '电子数码',
+      affectedItemCount: 2,
+      affectedQuantity: 5,
+      bindingCount: 1
+    });
+    const api = createInventoryApi(request);
+
+    await api.getCategoryDeletionPreview(20, 10);
+
+    expect(request).toHaveBeenCalledWith({
+      url: '/api/inventory/categories/20/deletion-preview?spaceId=10',
+      method: 'GET'
+    });
+  });
+
+  /**
+   * 验证空间迁移删除携带统一目标。
+   */
+  it('submits space deletion with move target', async () => {
+    const request = vi.fn().mockResolvedValue(undefined);
+    const api = createInventoryApi(request);
+
+    await api.deleteSpace(10, 'MOVE', 11);
+
+    expect(request).toHaveBeenCalledWith({
+      url: '/api/inventory/spaces/10/deletion',
+      method: 'POST',
+      data: { strategy: 'MOVE', targetSpaceId: 11 }
+    });
+  });
+
+  /**
+   * 验证物品迁移携带目标空间分类。
+   */
+  it('moves item to selected space and category', async () => {
+    const request = vi.fn().mockResolvedValue(undefined);
+    const api = createInventoryApi(request);
+
+    await api.moveItem(30, 11, 21);
+
+    expect(request).toHaveBeenCalledWith({
+      url: '/api/inventory/items/30/movement',
+      method: 'POST',
+      data: { targetSpaceId: 11, targetCategoryId: 21 }
+    });
+  });
 });

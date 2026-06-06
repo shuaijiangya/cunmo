@@ -26,12 +26,23 @@ const adjust = async (delta: number) => {
     adjusting.value = false;
   }
 };
+
+const manageItem = () => {
+  store.openDeletionModal({
+    scope: 'item',
+    targetId: props.item.id,
+    targetName: props.item.name,
+    spaceId: props.item.spaceId,
+    categoryId: props.item.categoryId
+  });
+};
 </script>
 
 <template>
   <view
     class="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-4 shadow-sm"
     :class="{ 'warn-active': isWarn }"
+    @longpress="manageItem"
   >
     <view class="min-w-0 space-y-1">
       <text class="block truncate text-sm font-medium text-slate-900">{{ item.name }}</text>
@@ -39,7 +50,15 @@ const adjust = async (delta: number) => {
         {{ item.smallCate }} · {{ store.spaces[item.space] ?? item.space }} / {{ item.detailSpace }}
       </text>
     </view>
-    <view class="ml-4 flex shrink-0 items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1">
+    <view class="ml-4 flex shrink-0 items-center gap-2">
+      <button
+        class="m-0 grid h-7 w-7 place-items-center rounded-md bg-transparent p-0 text-sm leading-none text-slate-400"
+        aria-label="管理物品"
+        @click.stop="manageItem"
+      >
+        ⋯
+      </button>
+      <view class="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1">
       <button
         class="m-0 grid h-5 w-5 place-items-center bg-transparent p-0 text-slate-400"
         :disabled="adjusting || item.count <= 0"
@@ -57,6 +76,7 @@ const adjust = async (delta: number) => {
       >
         +
       </button>
+      </view>
     </view>
   </view>
 </template>

@@ -25,7 +25,7 @@ export interface TransactionLog {
   time: string;
   date: string;
   itemName: string;
-  type: 'in' | 'warn' | 'out';
+  type: 'in' | 'warn' | 'out' | 'move' | 'delete';
   icon: string;
   desc: string;
   path: string;
@@ -97,7 +97,7 @@ export interface StockTransactionResponse {
   id: number;
   itemId: number;
   itemName: string;
-  type: 'IN' | 'OUT' | 'WARN';
+  type: 'IN' | 'OUT' | 'WARN' | 'MOVE' | 'DELETE';
   delta: number;
   quantityBefore: number;
   quantityAfter: number;
@@ -112,6 +112,26 @@ export interface CursorPage<T> {
   items: T[];
   nextCursor: number | null;
   hasMore: boolean;
+}
+
+export type DeletionStrategy = 'MOVE' | 'CLEAR_DELETE';
+
+export interface InventoryDeletionPreview {
+  targetId: number;
+  targetName: string;
+  affectedItemCount: number;
+  affectedQuantity: number;
+  bindingCount: number;
+}
+
+export type DeletionScope = 'item' | 'space' | 'category';
+
+export interface DeletionModalState {
+  scope: DeletionScope;
+  targetId: number;
+  targetName: string;
+  spaceId?: number;
+  categoryId?: number;
 }
 
 export interface GlobalState {

@@ -5,6 +5,25 @@ import type { CategoryKey, SpaceKey } from '@/types/inventory';
 const store = useInventoryStore();
 
 const entries = <T extends string>(record: Record<T, string>) => Object.entries(record) as [T, string][];
+
+const manageSpace = (key: SpaceKey, label: string) => {
+  if (key === 'all') return;
+  store.openDeletionModal({
+    scope: 'space',
+    targetId: store.spaceIds[key],
+    targetName: label
+  });
+};
+
+const manageCategory = (key: CategoryKey, label: string) => {
+  if (key === 'all' || store.currentFilter.space === 'all') return;
+  store.openDeletionModal({
+    scope: 'category',
+    targetId: store.categoryIds[key],
+    targetName: label,
+    spaceId: store.spaceIds[store.currentFilter.space]
+  });
+};
 </script>
 
 <template>
@@ -23,11 +42,25 @@ const entries = <T extends string>(record: Record<T, string>) => Object.entries(
                 : 'bg-slate-50 text-slate-600'
             "
             @click="store.setSpace(key)"
+            @longpress="manageSpace(key, label)"
           >
             {{ label }}
           </button>
         </view>
       </scroll-view>
+      <button
+        v-if="store.currentFilter.space !== 'all'"
+        class="m-0 bg-transparent px-1 text-sm leading-none text-slate-400"
+        aria-label="管理当前空间"
+        @click="
+          manageSpace(
+            store.currentFilter.space,
+            store.spaces[store.currentFilter.space]
+          )
+        "
+      >
+        ⋯
+      </button>
       <button
         class="m-0 bg-transparent px-1 text-base leading-none text-slate-400"
         @click="store.dispatch({ type: 'OPEN_MODAL', payload: { kind: 'space', itemContext: null } })"
@@ -50,11 +83,25 @@ const entries = <T extends string>(record: Record<T, string>) => Object.entries(
                 : 'bg-slate-50 text-slate-600'
             "
             @click="store.setCategory(key)"
+            @longpress="manageCategory(key, label)"
           >
             {{ label }}
           </button>
         </view>
       </scroll-view>
+      <button
+        v-if="store.currentFilter.cate !== 'all'"
+        class="m-0 bg-transparent px-1 text-sm leading-none text-slate-400"
+        aria-label="管理当前分类"
+        @click="
+          manageCategory(
+            store.currentFilter.cate,
+            store.activeCategories[store.currentFilter.cate]
+          )
+        "
+      >
+        ⋯
+      </button>
       <button
         class="m-0 bg-transparent px-1 text-base leading-none text-slate-400 disabled:opacity-35"
         :disabled="store.currentFilter.space === 'all'"

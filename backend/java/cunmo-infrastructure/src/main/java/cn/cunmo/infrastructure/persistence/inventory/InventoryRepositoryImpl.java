@@ -453,6 +453,14 @@ public class InventoryRepositoryImpl implements InventoryRepository {
         transaction.setSpaceSnapshot(space.getSpaceName());
         transaction.setCategorySnapshot(category.getCategoryName());
         transaction.setDetailLocationSnapshot(item.getDetailLocation());
+        transaction.setSourceSpaceSnapshot(space.getSpaceName());
+        transaction.setSourceCategorySnapshot(category.getCategoryName());
+        transaction.setSourceDetailLocationSnapshot(
+                item.getDetailLocation());
+        transaction.setTargetSpaceSnapshot(space.getSpaceName());
+        transaction.setTargetCategorySnapshot(category.getCategoryName());
+        transaction.setTargetDetailLocationSnapshot(
+                item.getDetailLocation());
         transaction.setOperatorUserId(operatorUserId);
         transaction.setOccurredAt(Instant.now());
         transactionMapper.insert(transaction);

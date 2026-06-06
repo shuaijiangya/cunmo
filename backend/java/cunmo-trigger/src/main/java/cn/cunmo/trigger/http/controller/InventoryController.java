@@ -4,6 +4,10 @@ import cn.cunmo.api.inventory.model.request.AdjustStockRequest;
 import cn.cunmo.api.inventory.model.request.CreateCategoryRequest;
 import cn.cunmo.api.inventory.model.request.CreateInventoryItemRequest;
 import cn.cunmo.api.inventory.model.request.CreateSpaceRequest;
+import cn.cunmo.api.inventory.model.request.DeleteCategoryRequest;
+import cn.cunmo.api.inventory.model.request.DeleteSpaceRequest;
+import cn.cunmo.api.inventory.model.request.MoveInventoryItemRequest;
+import cn.cunmo.api.inventory.model.request.UnbindCategoryRequest;
 import cn.cunmo.api.inventory.model.request.UpdateCategorySpacesRequest;
 import cn.cunmo.api.inventory.model.response.CreatedIdResponse;
 import cn.cunmo.api.inventory.model.response.InventoryItemMutationResponse;
@@ -12,9 +16,12 @@ import cn.cunmo.application.inventory.result.CursorPageResult;
 import cn.cunmo.application.inventory.result.InventoryAnalyticsResult;
 import cn.cunmo.application.inventory.result.InventoryBootstrapResult;
 import cn.cunmo.application.inventory.result.InventoryItemResult;
+import cn.cunmo.application.inventory.result.InventoryDeletionPreviewResult;
 import cn.cunmo.application.inventory.result.StockTransactionResult;
 import cn.cunmo.application.inventory.service.InventoryApplicationService;
+import cn.cunmo.application.inventory.service.InventoryDeletionApplicationService;
 import cn.cunmo.domain.inventory.model.aggregate.InventoryItem;
+import cn.cunmo.domain.inventory.model.enums.DeletionStrategy;
 import cn.cunmo.trigger.http.converter.InventoryHttpConverter;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -38,6 +45,7 @@ public class InventoryController {
             LoggerFactory.getLogger(InventoryController.class);
 
     private final InventoryApplicationService inventoryService;
+    private final InventoryDeletionApplicationService deletionService;
     private final CurrentUserProvider currentUserProvider;
 
     /**
@@ -45,8 +53,10 @@ public class InventoryController {
      */
     public InventoryController(
             InventoryApplicationService inventoryService,
+            InventoryDeletionApplicationService deletionService,
             CurrentUserProvider currentUserProvider) {
         this.inventoryService = inventoryService;
+        this.deletionService = deletionService;
         this.currentUserProvider = currentUserProvider;
     }
 
@@ -177,6 +187,126 @@ public class InventoryController {
                 request.delta(),
                 request.description());
         return InventoryHttpConverter.toMutationResponse(item);
+    }
+
+    /** 查询物品删除影响预览。 */
+    @GetMapping("/items/{itemId}/deletion-preview")
+    public InventoryDeletionPreviewResult previewItemDeletion(
+            @PathVariable long itemId) {
+        return inventoryService.previewItemDeletion(
+                currentUserProvider.requireUserId(),
+                itemId);
+    }
+
+    /** 将物品迁移到目标空间分类。 */
+    @PostMapping("/items/{itemId}/movement")
+    public void moveItem(
+            @PathVariable long itemId,
+            @Valid @RequestBody MoveInventoryItemRequest request) {
+        long userId = currentUserProvider.requireUserId();
+        log.info(
+                "event=inventory_item_move stage=http_request_accepted userId={} itemId={} targetSpaceId={} targetCategoryId={}",
+                userId,
+                itemId,
+                request.targetSpaceId(),
+                request.targetCategoryId());
+        deletionService.moveItem(
+                userId,
+                itemId,
+                request.targetSpaceId(),
+                request.targetCategoryId());
+    }
+
+    /** 清空并逻辑删除物品。 */
+    @PostMapping("/items/{itemId}/deletion")
+    public void deleteItem(@PathVariable long itemId) {
+        long userId = currentUserProvider.requireUserId();
+        log.info(
+                "event=inventory_item_delete stage=http_request_accepted userId={} itemId={}",
+                userId,
+                itemId);
+        deletionService.deleteItem(userId, itemId);
+    }
+
+    /** 查询空间删除影响预览。 */
+    @GetMapping("/spaces/{spaceId}/deletion-preview")
+    public InventoryDeletionPreviewResult previewSpaceDeletion(
+            @PathVariable long spaceId) {
+        return inventoryService.previewSpaceDeletion(
+                currentUserProvider.requireUserId(),
+                spaceId);
+    }
+
+    /** 按策略删除空间。 */
+    @PostMapping("/spaces/{spaceId}/deletion")
+    public void deleteSpace(
+            @PathVariable long spaceId,
+            @Valid @RequestBody DeleteSpaceRequest request) {
+        long userId = currentUserProvider.requireUserId();
+        log.info(
+                "event=inventory_space_delete stage=http_request_accepted userId={} spaceId={} strategy={}",
+                userId,
+                spaceId,
+                request.strategy());
+        deletionService.deleteSpace(
+                userId,
+                spaceId,
+                toDomainStrategy(request.strategy().name()),
+                request.targetSpaceId());
+    }
+
+    /** 查询分类删除或解绑影响预览。 */
+    @GetMapping("/categories/{categoryId}/deletion-preview")
+    public InventoryDeletionPreviewResult previewCategoryDeletion(
+            @PathVariable long categoryId,
+            @RequestParam(required = false) Long spaceId) {
+        return inventoryService.previewCategoryDeletion(
+                currentUserProvider.requireUserId(),
+                categoryId,
+                spaceId);
+    }
+
+    /** 按策略解除分类与当前空间绑定。 */
+    @PostMapping("/categories/{categoryId}/unbinding")
+    public void unbindCategory(
+            @PathVariable long categoryId,
+            @Valid @RequestBody UnbindCategoryRequest request) {
+        long userId = currentUserProvider.requireUserId();
+        log.info(
+                "event=inventory_category_unbind stage=http_request_accepted userId={} spaceId={} categoryId={} strategy={}",
+                userId,
+                request.spaceId(),
+                categoryId,
+                request.strategy());
+        deletionService.unbindCategory(
+                userId,
+                request.spaceId(),
+                categoryId,
+                toDomainStrategy(request.strategy().name()),
+                request.targetCategoryId());
+    }
+
+    /** 按策略全局删除分类。 */
+    @PostMapping("/categories/{categoryId}/deletion")
+    public void deleteCategory(
+            @PathVariable long categoryId,
+            @Valid @RequestBody DeleteCategoryRequest request) {
+        long userId = currentUserProvider.requireUserId();
+        log.info(
+                "event=inventory_category_delete stage=http_request_accepted userId={} categoryId={} strategy={}",
+                userId,
+                categoryId,
+                request.strategy());
+        deletionService.deleteCategory(
+                userId,
+                categoryId,
+                toDomainStrategy(request.strategy().name()),
+                request.targetCategoryId());
+    }
+
+    /** 将 HTTP 删除策略转换为领域枚举。 */
+    private DeletionStrategy toDomainStrategy(String strategy) {
+        return DeletionStrategy.valueOf(strategy);
     }
 
     /**

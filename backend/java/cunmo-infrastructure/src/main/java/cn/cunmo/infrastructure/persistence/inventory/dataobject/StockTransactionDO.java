@@ -23,6 +23,12 @@ public class StockTransactionDO {
     private String spaceSnapshot;
     private String categorySnapshot;
     private String detailLocationSnapshot;
+    private String sourceSpaceSnapshot;
+    private String sourceCategorySnapshot;
+    private String sourceDetailLocationSnapshot;
+    private String targetSpaceSnapshot;
+    private String targetCategorySnapshot;
+    private String targetDetailLocationSnapshot;
     private Long operatorUserId;
     private Instant occurredAt;
 
@@ -74,6 +80,30 @@ public class StockTransactionDO {
     public String getDetailLocationSnapshot() { return detailLocationSnapshot; }
     /** 设置精准位置快照。 */
     public void setDetailLocationSnapshot(String value) { this.detailLocationSnapshot = value; }
+    /** 返回来源空间快照。 */
+    public String getSourceSpaceSnapshot() { return sourceSpaceSnapshot; }
+    /** 设置来源空间快照。 */
+    public void setSourceSpaceSnapshot(String value) { this.sourceSpaceSnapshot = value; }
+    /** 返回来源分类快照。 */
+    public String getSourceCategorySnapshot() { return sourceCategorySnapshot; }
+    /** 设置来源分类快照。 */
+    public void setSourceCategorySnapshot(String value) { this.sourceCategorySnapshot = value; }
+    /** 返回来源精准位置快照。 */
+    public String getSourceDetailLocationSnapshot() { return sourceDetailLocationSnapshot; }
+    /** 设置来源精准位置快照。 */
+    public void setSourceDetailLocationSnapshot(String value) { this.sourceDetailLocationSnapshot = value; }
+    /** 返回目标空间快照。 */
+    public String getTargetSpaceSnapshot() { return targetSpaceSnapshot; }
+    /** 设置目标空间快照。 */
+    public void setTargetSpaceSnapshot(String value) { this.targetSpaceSnapshot = value; }
+    /** 返回目标分类快照。 */
+    public String getTargetCategorySnapshot() { return targetCategorySnapshot; }
+    /** 设置目标分类快照。 */
+    public void setTargetCategorySnapshot(String value) { this.targetCategorySnapshot = value; }
+    /** 返回目标精准位置快照。 */
+    public String getTargetDetailLocationSnapshot() { return targetDetailLocationSnapshot; }
+    /** 设置目标精准位置快照。 */
+    public void setTargetDetailLocationSnapshot(String value) { this.targetDetailLocationSnapshot = value; }
     /** 返回操作用户。 */
     public Long getOperatorUserId() { return operatorUserId; }
     /** 设置操作用户。 */

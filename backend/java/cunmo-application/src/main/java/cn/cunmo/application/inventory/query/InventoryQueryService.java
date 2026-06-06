@@ -3,6 +3,7 @@ package cn.cunmo.application.inventory.query;
 import cn.cunmo.application.inventory.result.CursorPageResult;
 import cn.cunmo.application.inventory.result.InventoryAnalyticsResult;
 import cn.cunmo.application.inventory.result.InventoryBootstrapResult;
+import cn.cunmo.application.inventory.result.InventoryDeletionPreviewResult;
 import cn.cunmo.application.inventory.result.InventoryItemResult;
 import cn.cunmo.application.inventory.result.StockTransactionResult;
 import cn.cunmo.domain.inventory.model.valueobject.VaultId;
@@ -44,4 +45,20 @@ public interface InventoryQueryService {
             VaultId vaultId,
             Long cursor,
             int size);
+
+    /** 查询物品删除影响预览。 */
+    InventoryDeletionPreviewResult previewItemDeletion(
+            VaultId vaultId,
+            long itemId);
+
+    /** 查询空间删除影响预览。 */
+    InventoryDeletionPreviewResult previewSpaceDeletion(
+            VaultId vaultId,
+            long spaceId);
+
+    /** 查询分类删除或解绑影响预览。 */
+    InventoryDeletionPreviewResult previewCategoryDeletion(
+            VaultId vaultId,
+            long categoryId,
+            Long spaceId);
 }

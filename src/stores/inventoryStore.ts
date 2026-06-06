@@ -6,6 +6,8 @@ import type { AuthSession, AuthUser } from '@/types/auth';
 import type {
   AppView,
   CategoryKey,
+  DeletionStrategy,
+  DeletionModalState,
   EmptyCavityContext,
   InventoryAnalytics,
   InventoryBootstrap,
@@ -39,6 +41,7 @@ interface InventoryState {
   isLoggedIn: boolean;
   currentUser: AuthUser | null;
   modal: ModalState;
+  deletionModal: DeletionModalState | null;
   loading: boolean;
   loadingMoreItems: boolean;
   loadingMoreAnalytics: boolean;
@@ -91,8 +94,21 @@ const toLog = (entry: StockTransactionResponse): TransactionLog => {
         ? 'warn'
         : entry.type === 'IN'
           ? 'in'
-          : 'out',
-    icon: entry.type === 'WARN' ? '!' : entry.type === 'IN' ? '+' : '-',
+          : entry.type === 'MOVE'
+            ? 'move'
+            : entry.type === 'DELETE'
+              ? 'delete'
+              : 'out',
+    icon:
+      entry.type === 'WARN'
+        ? '!'
+        : entry.type === 'IN'
+          ? '+'
+          : entry.type === 'MOVE'
+            ? '→'
+            : entry.type === 'DELETE'
+              ? '×'
+              : '-',
     desc: entry.description,
     path: `${entry.spaceName} ➔ ${entry.detailLocation || entry.categoryName}`
   };
@@ -116,6 +132,7 @@ export const useInventoryStore = defineStore('inventory', {
     isLoggedIn: false,
     currentUser: null,
     modal: { kind: null, itemContext: null },
+    deletionModal: null,
     loading: false,
     loadingMoreItems: false,
     loadingMoreAnalytics: false,
@@ -397,6 +414,7 @@ export const useInventoryStore = defineStore('inventory', {
       this.searchQuery = '';
       this.currentLensTab = 'space';
       this.modal = { kind: null, itemContext: null };
+      this.deletionModal = null;
       this.itemCursor = null;
       this.analyticsCursor = null;
       this.logCursor = null;
@@ -480,6 +498,88 @@ export const useInventoryStore = defineStore('inventory', {
         this.loadAnalytics(true),
         this.loadTransactions(true)
       ]);
+    },
+    async refreshAfterMutation() {
+      await this.refreshBootstrap();
+      if (
+        this.currentFilter.space !== 'all' &&
+        !this.spaces[this.currentFilter.space]
+      ) {
+        this.currentFilter = { space: 'all', cate: 'all' };
+      } else if (
+        this.currentFilter.cate !== 'all' &&
+        !this.activeCategories[this.currentFilter.cate]
+      ) {
+        this.currentFilter = {
+          space: this.currentFilter.space,
+          cate: 'all'
+        };
+      }
+      await Promise.all([
+        this.loadItems(true),
+        this.loadAnalytics(true),
+        this.loadTransactions(true)
+      ]);
+    },
+    openDeletionModal(state: DeletionModalState) {
+      this.deletionModal = state;
+    },
+    closeDeletionModal() {
+      this.deletionModal = null;
+    },
+    async moveInventoryItem(
+      itemId: number,
+      targetSpaceId: number,
+      targetCategoryId: number
+    ) {
+      await inventoryApi.moveItem(
+        itemId,
+        targetSpaceId,
+        targetCategoryId
+      );
+      await this.refreshAfterMutation();
+    },
+    async deleteInventoryItem(itemId: number) {
+      await inventoryApi.deleteItem(itemId);
+      await this.refreshAfterMutation();
+    },
+    async deleteInventorySpace(
+      spaceId: number,
+      strategy: DeletionStrategy,
+      targetSpaceId?: number
+    ) {
+      await inventoryApi.deleteSpace(
+        spaceId,
+        strategy,
+        targetSpaceId
+      );
+      await this.refreshAfterMutation();
+    },
+    async unbindInventoryCategory(
+      categoryId: number,
+      spaceId: number,
+      strategy: DeletionStrategy,
+      targetCategoryId?: number
+    ) {
+      await inventoryApi.unbindCategory(
+        categoryId,
+        spaceId,
+        strategy,
+        targetCategoryId
+      );
+      await this.refreshAfterMutation();
+    },
+    async deleteInventoryCategory(
+      categoryId: number,
+      strategy: DeletionStrategy,
+      targetCategoryId?: number
+    ) {
+      await inventoryApi.deleteCategory(
+        categoryId,
+        strategy,
+        targetCategoryId
+      );
+      await this.refreshAfterMutation();
     },
     requestErrorMessage(error: unknown, fallback: string) {
       return (
