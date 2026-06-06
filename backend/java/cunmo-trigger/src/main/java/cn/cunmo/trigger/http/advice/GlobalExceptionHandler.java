@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
@@ -88,6 +89,25 @@ public class GlobalExceptionHandler {
                 error.getClass().getSimpleName());
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse("INVALID_REQUEST", "请求参数错误"));
+    }
+
+    /**
+     * 将查询参数和路径参数类型转换失败映射为客户端请求错误。
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ErrorResponse> handleInvalidParameter(
+            MethodArgumentTypeMismatchException error) {
+        Class<?> requiredType = error.getRequiredType();
+        log.warn(
+                "event=application_request stage=request_parameter_rejected errorCode=INVALID_REQUEST_PARAMETER parameterName={} requiredType={}",
+                error.getName(),
+                requiredType == null
+                        ? "unknown"
+                        : requiredType.getSimpleName());
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse(
+                        "INVALID_REQUEST_PARAMETER",
+                        "请求参数格式错误"));
     }
 
     /**
