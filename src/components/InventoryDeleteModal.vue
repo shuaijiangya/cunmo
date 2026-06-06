@@ -168,6 +168,10 @@ const pickCategory = (
     categories.value[Number(event.detail.value)]?.id ?? null;
 };
 
+const selectStrategy = (value: DeletionStrategy) => {
+  strategy.value = value;
+};
+
 const submit = async () => {
   const modal = state.value;
   if (!modal || submitting.value) return;
@@ -236,9 +240,12 @@ const submit = async () => {
   <view
     v-if="state"
     class="absolute inset-0 z-[60] flex items-end bg-black/45"
-    @click.self="store.closeDeletionModal()"
+    @tap="store.closeDeletionModal()"
   >
-    <view class="delete-modal-sheet w-full rounded-t-2xl bg-white px-6 pt-5 shadow-2xl">
+    <view
+      class="delete-modal-sheet w-full rounded-t-2xl bg-white px-6 pt-5 shadow-2xl"
+      @tap.stop
+    >
       <view class="flex items-start justify-between border-b border-slate-100 pb-4">
         <view class="min-w-0">
           <text class="block text-sm font-bold text-slate-900">
@@ -302,14 +309,14 @@ const submit = async () => {
           <button
             class="m-0 rounded-lg border py-3 text-xs leading-none"
             :class="strategy === 'MOVE' ? 'border-slate-900 bg-slate-900 font-bold text-white' : 'border-slate-200 bg-white text-slate-500'"
-            @click="strategy = 'MOVE'"
+            @tap.stop="selectStrategy('MOVE')"
           >
             迁移后删除
           </button>
           <button
             class="m-0 rounded-lg border py-3 text-xs leading-none"
             :class="strategy === 'CLEAR_DELETE' ? 'border-red-500 bg-red-50 font-bold text-red-500' : 'border-slate-200 bg-white text-slate-500'"
-            @click="strategy = 'CLEAR_DELETE'"
+            @tap.stop="selectStrategy('CLEAR_DELETE')"
           >
             清空并删除
           </button>
