@@ -1,0 +1,53 @@
+# Dependencies and build outputs
+node_modules/
+dist/
+target/
+**/target/
+src/tailwind.generated.css
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+
+# Local runtime data
+data/
+**/data/
+uploads/
+**/uploads/
+*.log
+
+# IDE and operating-system files
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*.swp
+
+# WeChat developer local settings
+project.private.config.json
+
+# Legacy scaffold not used by the uni-app project
+miniprogram/
+typings/
+
+# Local verification and assistant artifacts
+.superpowers/
+artifacts/
+tmp-*
+*.tmp
+
+# Test and coverage outputs
+coverage/
+.nyc_output/

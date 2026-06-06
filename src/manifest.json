@@ -1,0 +1,20 @@
+{
+  "name": "存量魔方",
+  "appid": "",
+  "description": "Vue3 + TypeScript + Pinia inventory cube mini program",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "mp-weixin": {
+    "appid": "wxb971fb7f4bee2045",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "postcss": true,
+      "minified": true,
+      "newFeature": false,
+      "skylineRenderEnable": false
+    },
+    "lazyCodeLoading": "requiredComponents",
+    "usingComponents": false
+  }
+}

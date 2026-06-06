@@ -1,0 +1,48 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: cunmo-backend
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:backend/java/.env[.properties]
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB
+
+storage:
+  avatar-directory: ${AVATAR_STORAGE_DIRECTORY:./data/uploads/avatars}
+
+wechat:
+  app-id: ${WECHAT_APP_ID:}
+  app-secret: ${WECHAT_APP_SECRET:}
+  connect-timeout: 3s
+  response-timeout: 5s
+
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: ${TOKEN_TTL_SECONDS:7200}
+  is-concurrent: true
+  is-share: true
+  is-log: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+
+logging:
+  level:
+    cn.cunmo: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level traceId=%X{traceId:-none} logger=%logger{36} - %msg%n"

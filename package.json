@@ -1,0 +1,44 @@
+{
+  "name": "cunmo-view",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:tailwind": "tailwindcss -i ./src/tailwind.input.css -o ./src/tailwind.generated.css --minify",
+    "predev": "npm run build:tailwind",
+    "dev": "uni -p h5 --host 0.0.0.0",
+    "predev:mp-weixin": "npm run build:tailwind",
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "prebuild": "npm run build:tailwind",
+    "build": "vue-tsc --noEmit && uni build -p h5",
+    "prebuild:mp-weixin": "npm run build:tailwind",
+    "build:mp-weixin": "vue-tsc --noEmit && uni build -p mp-weixin && node ./scripts/patch-mp-weixin-config.mjs",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-alpha-5010220260529001",
+    "@dcloudio/uni-h5": "^3.0.0-alpha-5010220260529001",
+    "@dcloudio/uni-mp-weixin": "3.0.0-alpha-5010220260529001",
+    "pinia": "^2.3.1",
+    "tailwindcss": "3.4.17",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "3.4.31",
+    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5010220260529001",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.4.6",
+    "autoprefixer": "^10.5.0",
+    "jsdom": "^25.0.1",
+    "miniprogram-api-typings": "^2.8.3-1",
+    "playwright": "^1.60.0",
+    "postcss": "^8.4.49",
+    "typescript": "^5.7.3",
+    "vite": "5.2.8",
+    "vitest": "^2.1.8",
+    "vue-tsc": "^2.2.0",
+    "weapp-tailwindcss": "3.7.0"
+  }
+}
