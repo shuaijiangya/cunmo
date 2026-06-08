@@ -146,11 +146,17 @@ export interface GlobalState {
 export type AppView = 'home' | 'lens' | 'axis' | 'profile';
 export type LensTab = 'space' | 'cate';
 export type ModalKind = 'space' | 'category' | 'item' | null;
+export type AuthMode = 'guest' | 'authenticating' | 'authenticated';
 
 export interface ModalState {
   kind: ModalKind;
   itemContext: ItemCreationContext | null;
 }
+
+export type AuthIntent =
+  | { kind: 'view'; view: 'profile' }
+  | { kind: 'modal'; modal: ModalState }
+  | { kind: 'guest-entity-action' };
 
 export type SpaceDictionary = Record<SpaceKey, string>;
 export type CategoryDictionary = Record<CategoryKey, string>;

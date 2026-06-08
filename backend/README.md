@@ -88,6 +88,60 @@ MyBatis、Sa-Token 或微信 HTTP 实现。
 - `USER_DISABLED`: 用户被禁用
 - `INTERNAL_ERROR`: 数据库或服务内部异常
 
+## 退出协议
+
+`POST /api/auth/logout`
+
+请求必须携带当前业务 Token：
+
+```http
+Authorization: Bearer <business-token>
+```
+
+成功返回 `204 No Content`。服务只注销当前请求携带的 Token，不影响同一用户的其他设备。Sa-Token 配置使用 `is-concurrent: true`、`is-share: false`，保证并发设备使用独立 Token。
+
+无效、过期或已注销 Token 返回：
+
+```json
+{ "code": "UNAUTHORIZED", "message": "登录状态已失效，请重新登录" }
+```
+
+## 用户资料协议
+
+- `POST /api/users/me/avatar`：使用 multipart 字段 `file` 上传 JPG、PNG 或 WebP 头像，文件最大 2MB
+- `PUT /api/users/me/profile`：保存昵称和已上传成功的头像 URL
+
+头像默认写入 `AVATAR_STORAGE_DIRECTORY` 指定的本地目录，并通过 `/uploads/avatars/**` 提供访问。生产进程必须拥有该目录的创建和写入权限；Nginx 同时需要允许 2MB 请求体：
+
+```nginx
+client_max_body_size 2m;
+```
+
+`server.forward-headers-strategy: native` 配合反向代理传入的 `Host` 和 `X-Forwarded-Proto`，用于让后端生成正确的 HTTPS 头像 URL。它不参与 TLS 握手，也不会导致上传连接在 HTTPS 建立前断开。
+
+## 认证监控
+
+Actuator 暴露 `health`、`info`、`metrics` 和 `prometheus`。认证指标包括：
+
+- `cunmo.auth.login.success`
+- `cunmo.auth.login.failure`
+- `cunmo.auth.login.duration`
+- `cunmo.auth.logout.success`
+- `cunmo.auth.logout.failure`
+- `cunmo.auth.logout.duration`
+
+失败指标只使用受控 `error_code` 标签，耗时只使用 `outcome=success|failure`。生产环境必须在网关或网络层限制 `/actuator` 访问，不应直接暴露到公网。
+
+Micrometer 默认只在 Java 进程内保存聚合计数和耗时，不写入业务数据库或日志文件。请求次数增加不会产生同等数量的内存记录；但不得为指标增加用户 ID、Token、openid、traceId 或异常消息等高基数标签。应用重启会清空内存指标，长期存储应由 Prometheus 抓取：
+
+```yaml
+scrape_configs:
+  - job_name: cunmo-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["127.0.0.1:8080"]
+```
+
 ## 环境变量
 
 Java 服务：
@@ -124,6 +178,31 @@ WebClient 构建 URI 时抛出模板变量展开异常。
 ```text
 cn.cunmo.bootstrap.CunmoApplication
 ```
+
+## Nginx 反向代理
+
+生产环境至少应传递以下请求头：
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 2m;
+}
+```
+
+使用自定义完整配置启动时，始终传绝对路径，并用同一配置执行校验和重载：
+
+```bash
+sudo nginx -t -c /absolute/path/cummo.conf
+sudo nginx -c /absolute/path/cummo.conf
+sudo nginx -s reload -c /absolute/path/cummo.conf
+```
+
+若客户端提示 TLS 尚未建立便断开，问题发生在请求进入 Spring 之前。应检查 `nginx -T`、443 监听进程、证书与私钥匹配情况，以及是否误启动了多个 Nginx 实例。
 
 ## 安全边界
 

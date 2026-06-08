@@ -327,7 +327,7 @@ const submitItem = async () => {
 
         <text v-if="formError" class="block text-xs text-red-500">{{ formError }}</text>
         <button
-          class="m-0 w-full rounded-lg bg-slate-900 py-3 text-xs font-semibold leading-none text-white shadow-md disabled:opacity-40"
+          class="item-submit-button w-full rounded-lg bg-slate-900 py-3 text-xs font-semibold leading-none text-white shadow-md disabled:opacity-40"
           :disabled="!itemForm.name.trim() || submitting || selectedCapacity?.capacityReached"
           @click="submitItem"
         >
@@ -343,5 +343,9 @@ const submitItem = async () => {
   height: 85%;
   min-height: 0;
   overflow: hidden;
+}
+
+.item-submit-button {
+  margin: 24rpx 0 0;
 }
 </style>

@@ -117,7 +117,12 @@ describe('wechatAuthService', () => {
       expiresAt: Date.now() + 60_000
     });
     const request = vi.fn().mockRejectedValue({ statusCode: 401 });
-    const client = createAuthHttpClient({ request, storage });
+    const onUnauthorized = vi.fn();
+    const client = createAuthHttpClient({
+      request,
+      storage,
+      onUnauthorized
+    });
 
     await expect(client.request({ url: '/api/items', method: 'GET' })).rejects.toMatchObject({
       statusCode: 401
@@ -130,5 +135,6 @@ describe('wechatAuthService', () => {
       })
     );
     expect(storage.getSession()).toBeNull();
+    expect(onUnauthorized).toHaveBeenCalledOnce();
   });
 });

@@ -125,6 +125,8 @@ describe('inventory store actions', () => {
 
   it('adjusts stock through backend and refreshes dependent views', async () => {
     const store = useInventoryStore();
+    store.isLoggedIn = true;
+    store.authMode = 'authenticated';
     store.items = [
       {
         id: 31,
@@ -153,6 +155,8 @@ describe('inventory store actions', () => {
 
   it('appends the next item page with the server cursor', async () => {
     const store = useInventoryStore();
+    store.isLoggedIn = true;
+    store.authMode = 'authenticated';
     store.itemCursor = 31;
     store.items = [
       {
@@ -205,9 +209,84 @@ describe('inventory store actions', () => {
     expect(store.currentUser).toEqual(authSession.user);
   });
 
-  it('clears user and inventory state on logout', () => {
+  it('starts guests with sample data without requesting private inventory', () => {
+    const store = useInventoryStore();
+
+    store.initializeExperience(null);
+
+    expect(store.authMode).toBe('guest');
+    expect(store.items.length).toBeGreaterThan(0);
+    expect(store.bootstrap?.vaultName).toBe('访客体验魔方');
+    expect(inventoryApiMock.getBootstrap).not.toHaveBeenCalled();
+  });
+
+  it('requests login for protected views and clears the intent when cancelled', () => {
+    const store = useInventoryStore();
+    store.initializeExperience(null);
+
+    store.dispatch({ type: 'SET_VIEW', payload: 'profile' });
+
+    expect(store.activeView).toBe('home');
+    expect(store.loginVisible).toBe(true);
+    expect(store.pendingAuthIntent).toEqual({
+      kind: 'view',
+      view: 'profile'
+    });
+
+    store.cancelAuthentication();
+
+    expect(store.loginVisible).toBe(false);
+    expect(store.pendingAuthIntent).toBeNull();
+  });
+
+  it('loads real inventory before continuing a protected modal intent', async () => {
+    const store = useInventoryStore();
+    store.initializeExperience(null);
+    store.dispatch({
+      type: 'OPEN_MODAL',
+      payload: { kind: 'space', itemContext: null }
+    });
+
+    await store.completeLogin(authSession);
+
+    expect(store.authMode).toBe('authenticated');
+    expect(store.loginVisible).toBe(false);
+    expect(store.modal.kind).toBe('space');
+    expect(store.items[0].name).toBe('充电器');
+    expect(inventoryApiMock.getBootstrap).toHaveBeenCalledOnce();
+  });
+
+  it('does not force users with incomplete profiles away from their intent', async () => {
+    const store = useInventoryStore();
+    store.initializeExperience(null);
+    const incompleteSession = {
+      ...authSession,
+      user: { ...authSession.user, profileCompleted: false }
+    };
+
+    await store.completeLogin(incompleteSession);
+
+    expect(store.activeView).toBe('home');
+  });
+
+  it('does not replay guest sample entity ids against real inventory', async () => {
+    const store = useInventoryStore();
+    store.initializeExperience(null);
+
+    await store.adjustItemCount(301, 1);
+    await store.completeLogin(authSession);
+
+    expect(inventoryApiMock.adjustStock).not.toHaveBeenCalled();
+    expect(store.activeView).toBe('home');
+    expect(store.noticeMessage).toBe(
+      '已切换到你的真实库存，请重新选择要操作的物品'
+    );
+  });
+
+  it('clears user and inventory state after remote logout succeeds', async () => {
     const store = useInventoryStore();
     const storage = { clearSession: vi.fn() };
+    const remoteLogout = vi.fn().mockResolvedValue(undefined);
     store.isLoggedIn = true;
     store.currentUser = authSession.user;
     store.items = [
@@ -223,16 +302,55 @@ describe('inventory store actions', () => {
       }
     ];
 
-    store.logout(storage);
+    await store.logout(storage, remoteLogout);
 
     expect(store.isLoggedIn).toBe(false);
     expect(store.currentUser).toBeNull();
-    expect(store.items).toEqual([]);
+    expect(store.authMode).toBe('guest');
+    expect(store.activeView).toBe('home');
+    expect(store.items.length).toBeGreaterThan(0);
+    expect(store.loginVisible).toBe(false);
     expect(storage.clearSession).toHaveBeenCalledOnce();
+    expect(remoteLogout).toHaveBeenCalledOnce();
+  });
+
+  it('still clears local state when remote logout fails', async () => {
+    const store = useInventoryStore();
+    const storage = { clearSession: vi.fn() };
+    const remoteLogout = vi.fn().mockRejectedValue(new Error('offline'));
+    store.isLoggedIn = true;
+    store.authMode = 'authenticated';
+    store.currentUser = authSession.user;
+
+    await store.logout(storage, remoteLogout);
+
+    expect(storage.clearSession).toHaveBeenCalledOnce();
+    expect(store.authMode).toBe('guest');
+    expect(store.currentUser).toBeNull();
+    expect(store.noticeMessage).toBe(
+      '账号已在本机退出，服务器退出请求未完成'
+    );
+  });
+
+  it('returns an expired session to guest mode without forcing login', () => {
+    const store = useInventoryStore();
+    store.isLoggedIn = true;
+    store.authMode = 'authenticated';
+    store.currentUser = authSession.user;
+
+    store.handleUnauthorized();
+
+    expect(store.authMode).toBe('guest');
+    expect(store.currentUser).toBeNull();
+    expect(store.loginVisible).toBe(false);
+    expect(store.noticeMessage).toBe('登录状态已失效，请重新登录');
+    expect(store.items.length).toBeGreaterThan(0);
   });
 
   it('deletes an item and refreshes all dependent views', async () => {
     const store = useInventoryStore();
+    store.isLoggedIn = true;
+    store.authMode = 'authenticated';
     store.currentFilter = { space: 'bedroom', cate: 'digital' };
     inventoryApiMock.deleteItem.mockResolvedValue(undefined);
 

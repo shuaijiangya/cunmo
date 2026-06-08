@@ -32,7 +32,7 @@ sa-token:
   token-prefix: Bearer
   timeout: ${TOKEN_TTL_SECONDS:7200}
   is-concurrent: true
-  is-share: true
+  is-share: false
   is-log: false
 
 mybatis-plus:
@@ -40,6 +40,12 @@ mybatis-plus:
     map-underscore-to-camel-case: true
   global-config:
     banner: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
 
 logging:
   level:

@@ -9,11 +9,15 @@ const store = useInventoryStore();
 const editing = ref(false);
 const saving = ref(false);
 const uploading = ref(false);
+const loggingOut = ref(false);
 const errorMessage = ref('');
 const nickname = ref('');
 const avatarUrl = ref('');
 const displayName = computed(() => store.currentUser?.nickname || '微信用户');
 
+/**
+ * 使用当前用户资料初始化编辑表单。
+ */
 const startEditing = () => {
   nickname.value = store.currentUser?.nickname || '';
   avatarUrl.value = store.currentUser?.avatarUrl || '';
@@ -26,6 +30,9 @@ onMounted(() => {
   }
 });
 
+/**
+ * 上传微信头像选择器返回的临时图片。
+ */
 const chooseAvatar = async (event: { detail: { avatarUrl?: string } }) => {
   const temporaryPath = event.detail.avatarUrl;
   if (!temporaryPath || uploading.value) return;
@@ -41,6 +48,9 @@ const chooseAvatar = async (event: { detail: { avatarUrl?: string } }) => {
   }
 };
 
+/**
+ * 校验并保存用户昵称和头像。
+ */
 const saveProfile = async () => {
   if (!store.currentUser || saving.value || uploading.value) return;
   const normalizedNickname = nickname.value.trim();
@@ -63,6 +73,26 @@ const saveProfile = async () => {
   } finally {
     saving.value = false;
   }
+};
+
+/**
+ * 二次确认后退出当前账号并切换回游客体验。
+ */
+const confirmLogout = () => {
+  if (loggingOut.value) return;
+  uni.showModal({
+    title: '退出当前账号',
+    content: '退出后将清除本机登录态，并回到示例数据浏览。',
+    confirmText: '确认退出',
+    confirmColor: '#ef4444',
+    success: ({ confirm }) => {
+      if (!confirm) return;
+      loggingOut.value = true;
+      void store.logout().finally(() => {
+        loggingOut.value = false;
+      });
+    }
+  });
 };
 </script>
 
@@ -124,9 +154,10 @@ const saveProfile = async () => {
         </view>
         <button
           class="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-white py-3.5 text-sm font-bold leading-none text-red-500 shadow-sm"
-          @click="store.logout()"
+          :disabled="loggingOut"
+          @click="confirmLogout"
         >
-          <text>退出当前账号</text>
+          <text>{{ loggingOut ? '正在退出...' : '退出当前账号' }}</text>
         </button>
       </view>
     </scroll-view>

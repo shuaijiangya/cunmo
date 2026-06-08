@@ -1,6 +1,8 @@
 package cn.cunmo.trigger.http.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -8,7 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import cn.cunmo.application.auth.result.LoginResult;
+import cn.cunmo.application.auth.service.LogoutApplicationService;
 import cn.cunmo.application.auth.service.WechatLoginApplicationService;
+import cn.cunmo.application.exception.ApplicationException;
 import cn.cunmo.trigger.http.advice.GlobalExceptionHandler;
 import cn.cunmo.trigger.http.filter.RequestTraceFilter;
 import java.util.List;
@@ -25,6 +29,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 class WechatAuthControllerTest {
     @Mock
     private WechatLoginApplicationService loginService;
+    @Mock
+    private LogoutApplicationService logoutService;
 
     private MockMvc mockMvc;
 
@@ -34,7 +40,9 @@ class WechatAuthControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new WechatAuthController(loginService))
+                .standaloneSetup(new WechatAuthController(
+                        loginService,
+                        logoutService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .addFilters(new RequestTraceFilter())
                 .build();
@@ -83,5 +91,32 @@ class WechatAuthControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    /**
+     * 验证退出当前 Token 返回无响应体。
+     */
+    @Test
+    void logsOutCurrentToken() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isNoContent());
+
+        verify(logoutService).logout();
+    }
+
+    /**
+     * 验证无效登录态退出时返回稳定的 401 协议。
+     */
+    @Test
+    void rejectsLogoutWhenSessionIsInvalid() throws Exception {
+        doThrow(new ApplicationException(
+                "UNAUTHORIZED",
+                "登录状态已失效，请重新登录"))
+                .when(logoutService)
+                .logout();
+
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 }

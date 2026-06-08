@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import cn.cunmo.application.auth.command.WechatLoginCommand;
+import cn.cunmo.application.auth.port.AuthMonitoring;
 import cn.cunmo.application.auth.port.TokenService;
 import cn.cunmo.application.auth.port.TokenService.TokenResult;
 import cn.cunmo.application.auth.result.LoginResult;
@@ -19,6 +20,7 @@ import cn.cunmo.domain.auth.model.valueobject.WechatPrincipal;
 import cn.cunmo.domain.auth.repository.AuthorizationRepository;
 import cn.cunmo.domain.auth.repository.UserRepository;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -40,6 +42,8 @@ class WechatLoginApplicationServiceTest {
     private AuthorizationRepository authorizationRepository;
     @Mock
     private TokenService tokenService;
+    @Mock
+    private AuthMonitoring authMonitoring;
 
     private WechatLoginApplicationService service;
 
@@ -53,6 +57,7 @@ class WechatLoginApplicationServiceTest {
                 userRepository,
                 authorizationRepository,
                 tokenService,
+                authMonitoring,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -78,6 +83,8 @@ class WechatLoginApplicationServiceTest {
         assertEquals(List.of("USER"), result.roles());
         assertEquals(List.of("inventory:item:read"), result.permissions());
         verify(userRepository).recordSuccessfulLogin(user.id(), NOW);
+        verify(authMonitoring).loginSucceeded(
+                org.mockito.ArgumentMatchers.any(Duration.class));
     }
 
     /**
@@ -95,5 +102,25 @@ class WechatLoginApplicationServiceTest {
                 () -> service.login(new WechatLoginCommand("temporary-code")));
 
         assertEquals("USER_DISABLED", error.code());
+        verify(authMonitoring).loginFailed(
+                org.mockito.ArgumentMatchers.eq("USER_DISABLED"),
+                org.mockito.ArgumentMatchers.any(Duration.class));
+    }
+
+    /**
+     * 验证未知运行时异常使用受控错误码记录。
+     */
+    @Test
+    void recordsInternalErrorForUnexpectedFailure() {
+        when(wechatGateway.exchangeCode("temporary-code"))
+                .thenThrow(new IllegalStateException("database password"));
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> service.login(new WechatLoginCommand("temporary-code")));
+
+        verify(authMonitoring).loginFailed(
+                org.mockito.ArgumentMatchers.eq("INTERNAL_ERROR"),
+                org.mockito.ArgumentMatchers.any(Duration.class));
     }
 }

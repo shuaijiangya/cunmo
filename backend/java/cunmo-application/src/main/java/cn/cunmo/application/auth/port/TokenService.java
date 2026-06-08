@@ -19,6 +19,11 @@ public interface TokenService {
     TokenResult issue(UserId userId, List<String> roles, List<String> permissions);
 
     /**
+     * 注销当前请求携带的业务 Token，不影响同用户其他会话。
+     */
+    void logoutCurrentToken();
+
+    /**
      * Token 签发结果。
      */
     record TokenResult(String token, long expiresIn) {

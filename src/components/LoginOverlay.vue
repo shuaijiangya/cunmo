@@ -8,15 +8,20 @@ const store = useInventoryStore();
 const loading = ref(false);
 const errorMessage = ref('');
 
+/**
+ * 发起微信登录并恢复用户原本准备执行的受保护操作。
+ */
 const login = async () => {
   if (loading.value) return;
 
   loading.value = true;
   errorMessage.value = '';
+  store.startAuthentication();
   try {
     const session = await wechatAuthService.login();
-    store.completeLogin(session);
+    await store.completeLogin(session);
   } catch (error) {
+    store.authenticationFailed();
     errorMessage.value =
       error instanceof AuthError ? error.message : '登录失败，请稍后重试';
   } finally {
@@ -26,38 +31,43 @@ const login = async () => {
 </script>
 
 <template>
-  <view class="login-overlay">
-    <view class="login-brand">
-      <view class="login-cube">
-        <view class="login-cube-cell is-dark" />
-        <view class="login-cube-cell is-light" />
-        <view class="login-cube-cell is-light" />
-        <view class="login-cube-cell is-dark" />
-      </view>
-      <view class="login-title-group">
-        <text class="login-title">存量魔方</text>
-        <text class="login-subtitle">高维数字化资产节点</text>
-      </view>
-    </view>
-
-    <view class="login-action-zone">
-      <view class="login-copy">
-        <text class="login-copy-title">授权极速登录</text>
-        <text class="login-copy-subtitle">使用微信一键绑定，多设备云端秒级同步</text>
-      </view>
-      <button
-        class="login-button"
-        :disabled="loading"
-        @click="login"
-      >
-        <view class="login-mark">
-          <view class="login-peak is-small" />
-          <view class="login-peak is-large" />
-          <view class="login-ground" />
+  <view class="login-overlay" @tap="store.cancelAuthentication()">
+    <view class="login-sheet" @tap.stop>
+      <view class="login-brand">
+        <view class="login-cube">
+          <view class="login-cube-cell is-dark" />
+          <view class="login-cube-cell is-light" />
+          <view class="login-cube-cell is-light" />
+          <view class="login-cube-cell is-dark" />
         </view>
-        <text>{{ loading ? '授权拉取中...' : '微信手机号快捷登录' }}</text>
-      </button>
-      <text v-if="errorMessage" class="login-error">{{ errorMessage }}</text>
+        <view class="login-title-group">
+          <text class="login-title">登录存量魔方</text>
+          <text class="login-subtitle">保存真实库存并开启云端同步</text>
+        </view>
+      </view>
+
+      <view class="login-action-zone">
+        <button
+          class="login-button"
+          :disabled="loading"
+          @click="login"
+        >
+          <view class="login-mark">
+            <view class="login-peak is-small" />
+            <view class="login-peak is-large" />
+            <view class="login-ground" />
+          </view>
+          <text>{{ loading ? '登录中...' : '微信授权登录' }}</text>
+        </button>
+        <button
+          class="login-cancel"
+          :disabled="loading"
+          @click="store.cancelAuthentication()"
+        >
+          暂不登录，继续浏览
+        </button>
+        <text v-if="errorMessage" class="login-error">{{ errorMessage }}</text>
+      </view>
     </view>
   </view>
 </template>
@@ -71,30 +81,35 @@ const login = async () => {
   left: 0;
   z-index: 100;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  align-items: flex-end;
   overflow: hidden;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.login-sheet {
+  width: 100%;
+  border-radius: 40rpx 40rpx 0 0;
   background: #fff;
+  padding: 52rpx 44rpx calc(48rpx + env(safe-area-inset-bottom));
 }
 
 .login-brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 236rpx 80rpx 0;
-  gap: 52rpx;
+  gap: 28rpx;
 }
 
 .login-cube {
   display: grid;
-  width: 188rpx;
-  height: 188rpx;
-  grid-template-columns: repeat(2, 58rpx);
-  grid-template-rows: repeat(2, 58rpx);
+  width: 112rpx;
+  height: 112rpx;
+  grid-template-columns: repeat(2, 34rpx);
+  grid-template-rows: repeat(2, 34rpx);
   place-content: center;
-  gap: 18rpx;
-  border: 8rpx solid #0f172a;
-  border-radius: 36rpx;
+  gap: 10rpx;
+  border: 6rpx solid #0f172a;
+  border-radius: 26rpx;
   background: #fff;
   box-shadow: 0 34rpx 80rpx rgba(15, 23, 42, 0.13);
   transform: rotate(12deg);
@@ -122,47 +137,23 @@ const login = async () => {
 
 .login-title {
   color: #0f172a;
-  font-size: 60rpx;
+  font-size: 38rpx;
   font-weight: 900;
   line-height: 1;
 }
 
 .login-subtitle {
   color: #94a3b8;
-  font-size: 28rpx;
+  font-size: 24rpx;
   font-weight: 600;
-  letter-spacing: 6rpx;
   line-height: 1.3;
 }
 
 .login-action-zone {
   display: flex;
   flex-direction: column;
-  gap: 48rpx;
-  padding: 0 44rpx calc(72rpx + constant(safe-area-inset-bottom));
-  padding: 0 44rpx calc(72rpx + env(safe-area-inset-bottom));
-}
-
-.login-copy {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14rpx;
-  text-align: center;
-}
-
-.login-copy-title {
-  color: #1e293b;
-  font-size: 34rpx;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.login-copy-subtitle {
-  color: #94a3b8;
-  font-size: 24rpx;
-  font-weight: 500;
-  line-height: 1.3;
+  gap: 20rpx;
+  margin-top: 44rpx;
 }
 
 .login-button {
@@ -192,10 +183,19 @@ const login = async () => {
 }
 
 .login-error {
-  margin-top: -24rpx;
   color: #ef4444;
   font-size: 24rpx;
   text-align: center;
+}
+
+.login-cancel {
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 26rpx;
+  line-height: 1;
+  padding: 24rpx;
 }
 
 .login-mark {

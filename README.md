@@ -12,6 +12,9 @@
 
 ## 当前能力
 
+- 首页默认以游客示例数据提供浏览体验，不在启动时强制授权。
+- 用户执行资料页、创建、库存调整或删除等受保护操作时再触发微信登录。
+- 登录成功后加载真实库存并恢复安全的待办操作；退出后仅注销当前 Token，并返回游客体验。
 - 微信 `wx.login` 登录，服务端通过 `code2Session` 换取微信身份。
 - 首次登录自动创建系统用户并绑定默认 `USER` 角色。
 - 用户昵称更新和头像上传。
@@ -147,6 +150,24 @@ VITE_API_BASE_URL=http://127.0.0.1:8080
 
 浏览器 H5 与后端端口不同，当前后端尚未提供 CORS 配置；完整登录和接口联调优先使用微信开发者工具，或在本地开发环境补充代理/CORS 配置。
 
+微信小程序构建会把 `VITE_API_BASE_URL` 编译进 `dist`。本地开发与生产上传必须明确使用不同地址：
+
+```bash
+# 本地开发者工具
+rm -rf dist/build/mp-weixin
+VITE_API_BASE_URL=http://127.0.0.1:8080 npm run build:mp-weixin
+
+# 正式上传
+rm -rf dist/build/mp-weixin
+VITE_API_BASE_URL=https://cunmo.icu npm run build:mp-weixin
+```
+
+电脑上的开发者工具可以访问 `127.0.0.1`；手机真机不能把该地址当作开发电脑，真机联调需使用电脑局域网地址或 HTTPS 测试域名。上传前可检查实际产物：
+
+```bash
+rg 'cunmo\.icu|127\.0\.0\.1|localhost' dist/build/mp-weixin
+```
+
 ## 常用命令
 
 前端：
@@ -277,7 +298,11 @@ cunmo-bootstrap 负责聚合 trigger 与 infrastructure
 
 应用层只依赖 `TokenService`、`CurrentUserProvider`，Sa-Token 实现位于基础设施层。这样登录用例不需要了解 Token 库的静态 API，也便于测试时替换实现。
 
-Sa-Token 降低了微信小程序业务登录态的实现成本，但它只解决登录态管理，不会自动完成项目的 RBAC 权限执行。
+Sa-Token 降低了微信小程序业务登录态的实现成本，但它只解决登录态管理，不会自动完成项目的 RBAC 权限执行。配置使用 `is-concurrent: true` 和 `is-share: false`，允许同一用户多设备登录，同时为每次登录签发独立 Token，使退出仅影响当前设备。
+
+认证链路通过 Micrometer 记录登录与退出的成功数、失败错误码和总耗时。Spring Boot Actuator 暴露 `/actuator/health`、`/actuator/info`、`/actuator/metrics` 与 `/actuator/prometheus`。生产部署必须在网关或网络层限制 `/actuator` 的访问来源，不应直接暴露到公网。
+
+Micrometer 在应用内只保存计数器和计时器的聚合状态，不保存每次请求明细，内存占用不会随请求次数线性增长。指标标签必须保持低基数，禁止使用用户 ID、Token、openid、traceId 或异常消息。应用重启后内存指标会清零；长期趋势由 Prometheus 定时抓取 `/actuator/prometheus` 并持久化。
 
 ### 8. 为什么在应用层控制事务
 
@@ -300,7 +325,7 @@ Sa-Token 降低了微信小程序业务登录态的实现成本，但它只解�
 | 测试覆盖不均，数据库写入、权限执行和完整删除事务缺少集成测试；当前读模型测试文件还被整体注释 | 现阶段以用例单测和少量契约测试为主，复杂 MyBatis 场景尚未建立稳定测试库 | SQL、锁、逻辑删除和回滚问题可能只在联调时出现 | 恢复被注释测试，引入 Testcontainers MySQL，覆盖迁移、并发、回滚和跨用户隔离 |
 | 微信登录注册流程没有一个清晰覆盖“注册、默认角色、登录时间”的整体事务边界 | 微信网络调用被有意放在事务外，但数据库阶段尚未单独封装事务用例 | 中途数据库失败时可能留下部分状态，具体风险取决于仓储内部实现 | 保留外部 HTTP 调用在事务外，把身份落库到授权加载之间收敛成独立事务服务 |
 | 错误码映射集中在一个静态 Map 中，部分新错误依赖默认 `400` | 功能快速增加时优先保持统一响应格式 | 错误码和 HTTP 状态可能遗漏，客户端难以区分冲突、未找到和参数错误 | 按领域维护错误定义或让异常携带受控 HTTP 语义，并增加映射完整性测试 |
-| 缺少 Actuator 健康检查、指标、OpenAPI 和标准部署描述 | 当前重点仍是功能闭环和本地联调 | 生产排障、容量判断、接口协作和自动部署成本较高 | 在部署前补 Actuator、结构化指标、OpenAPI、容器镜像和环境配置规范 |
+| 已增加 Actuator 健康检查和认证指标，但仍缺少 OpenAPI 和标准部署描述 | 当前重点仍是功能闭环和本地联调 | 接口协作和自动部署成本仍然较高 | 在部署前补 OpenAPI、容器镜像和环境配置规范，并在网关限制 Actuator 访问 |
 | H5 跨域开发支持尚未配置 | 主要交付目标是微信小程序 | 浏览器本地联调会被 CORS 限制 | 增加仅开发环境启用的 Vite 代理或后端受控 CORS 白名单 |
 
 ## 建议演进顺序
@@ -320,6 +345,7 @@ Sa-Token 降低了微信小程序业务登录态的实现成本，但它只解�
 - 不向前端返回 `openid`、`unionid`、`session_key` 或 AppSecret。
 - 当前实现不持久化 `session_key`。
 - 日志禁止记录微信 code、完整 Token、openid、session_key 和 secret。
+- 认证指标禁止使用用户 ID、Token、openid、traceId 或异常消息作为标签。
 - 库存接口必须先由当前登录用户定位 `vault_id`。
 - 库存数量更新和流水写入必须位于同一事务。
 - 生产环境必须启用 HTTPS。
@@ -342,6 +368,8 @@ Sa-Token 降低了微信小程序业务登录态的实现成本，但它只解�
 - [微信登录设计](docs/superpowers/specs/2026-06-05-wechat-auth-design.md)
 - [库存领域设计](docs/superpowers/specs/2026-06-06-inventory-domain-design.md)
 - [库存删除与迁移设计](docs/superpowers/specs/2026-06-06-inventory-deletion-design.md)
+- [延迟登录与游客体验设计](docs/superpowers/specs/2026-06-08-deferred-auth-design.md)
+- [认证监控与退出设计](docs/superpowers/specs/2026-06-08-auth-monitoring-logout-design.md)
 
 ## 项目阶段判断
 

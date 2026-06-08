@@ -83,6 +83,8 @@ Micrometer 实现位于 Infrastructure。应用层只依赖端口，不依赖 `M
 
 Sa-Token 实现使用当前请求 Token 执行单 Token 注销，不调用用户级 `logout(userId)` 或踢下线全部会话的方法。
 
+Sa-Token 配置保持 `is-concurrent: true`，并将 `is-share` 设为 `false`。这样同一用户可以多设备并发登录，但每次登录使用独立 Token，注销当前 Token 不会使其他设备失效。
+
 ## 结构化日志
 
 登录继续使用 `event=wechat_login`。退出使用 `event=auth_logout`，包含：
