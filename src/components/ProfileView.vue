@@ -94,6 +94,10 @@ const confirmLogout = () => {
     }
   });
 };
+
+const openQuotaDashboard = () => {
+  uni.navigateTo({ url: '/pages/quota/index' });
+};
 </script>
 
 <template>
@@ -144,6 +148,13 @@ const confirmLogout = () => {
 
       <view class="space-y-4 px-6 pb-6">
         <view class="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <button
+            class="m-0 flex w-full items-center justify-between border-b border-slate-50 bg-transparent px-4 py-3.5 text-sm font-medium leading-none text-slate-700"
+            @click="openQuotaDashboard"
+          >
+            <text>◱ 容量与配额</text>
+            <text class="text-xs text-indigo-500">查看 PRO</text>
+          </button>
           <button class="m-0 flex w-full items-center justify-between border-b border-slate-50 bg-transparent px-4 py-3.5 text-sm font-medium leading-none text-slate-700">
             <text>⚙ 全局阈值设置</text>
           </button>

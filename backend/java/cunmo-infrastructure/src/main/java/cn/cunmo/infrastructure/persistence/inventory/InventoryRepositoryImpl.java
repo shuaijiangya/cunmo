@@ -142,6 +142,27 @@ public class InventoryRepositoryImpl implements InventoryRepository {
                 categoryId);
     }
 
+    @Override
+    public int countSpaces(VaultId vaultId) {
+        return spaceMapper.countActiveSpaces(vaultId.value());
+    }
+
+    @Override
+    public int countCategories(VaultId vaultId, long spaceId) {
+        return bindingMapper.countActiveCategories(
+                vaultId.value(),
+                spaceId);
+    }
+
+    @Override
+    public List<Long> findCategorySpaceIds(
+            VaultId vaultId,
+            long categoryId) {
+        return bindingMapper.selectSpaceIds(
+                vaultId.value(),
+                categoryId);
+    }
+
     /**
      * 保存新物品并生成初始库存流水。
      */
@@ -335,7 +356,7 @@ public class InventoryRepositoryImpl implements InventoryRepository {
         InventoryVaultDO vault = new InventoryVaultDO();
         vault.setOwnerUserId(userId);
         vault.setVaultName("我的存量魔方");
-        vault.setItemLimitPerSpaceCategory(20);
+        vault.setItemLimitPerSpaceCategory(10);
         vault.setStatus(1);
         vault.setVersion(0);
         vault.setDeleted(0);

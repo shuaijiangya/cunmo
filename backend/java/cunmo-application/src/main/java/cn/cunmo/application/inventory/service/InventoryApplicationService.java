@@ -8,12 +8,16 @@ import cn.cunmo.application.inventory.result.InventoryBootstrapResult;
 import cn.cunmo.application.inventory.result.InventoryItemResult;
 import cn.cunmo.application.inventory.result.InventoryDeletionPreviewResult;
 import cn.cunmo.application.inventory.result.StockTransactionResult;
+import cn.cunmo.application.membership.service.MembershipQuotaPolicy;
 import cn.cunmo.domain.inventory.model.aggregate.InventoryItem;
 import cn.cunmo.domain.inventory.model.aggregate.InventoryVault;
 import cn.cunmo.domain.inventory.model.aggregate.StockAdjustment;
 import cn.cunmo.domain.inventory.model.valueobject.InventoryItemId;
 import cn.cunmo.domain.inventory.repository.InventoryRepository;
+import cn.cunmo.domain.membership.model.valueobject.MembershipQuota;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,15 +31,18 @@ public class InventoryApplicationService {
 
     private final InventoryRepository repository;
     private final InventoryQueryService queryService;
+    private final MembershipQuotaPolicy quotaPolicy;
 
     /**
      * 创建库存应用服务。
      */
     public InventoryApplicationService(
             InventoryRepository repository,
-            InventoryQueryService queryService) {
+            InventoryQueryService queryService,
+            MembershipQuotaPolicy quotaPolicy) {
         this.repository = repository;
         this.queryService = queryService;
+        this.quotaPolicy = quotaPolicy;
     }
 
     /**
@@ -60,7 +67,13 @@ public class InventoryApplicationService {
      */
     @Transactional
     public long createSpace(long userId, String name) {
-        InventoryVault vault = repository.requireVault(userId);
+        InventoryVault vault = repository.lockVault(userId);
+        MembershipQuota quota = quotaPolicy.quotaFor(userId);
+        assertBelowLimit(
+                repository.countSpaces(vault.id()),
+                quota.rootSpaceLimit(),
+                "ROOT_SPACE_QUOTA_EXCEEDED",
+                "免费版最多创建3个根空间");
         long id = repository.createSpace(vault.id(), name);
         log.info(
                 "event=inventory_structure stage=space_created userId={} spaceId={}",
@@ -77,7 +90,15 @@ public class InventoryApplicationService {
             long userId,
             String name,
             List<Long> spaceIds) {
-        InventoryVault vault = repository.requireVault(userId);
+        InventoryVault vault = repository.lockVault(userId);
+        MembershipQuota quota = quotaPolicy.quotaFor(userId);
+        for (Long spaceId : new HashSet<>(spaceIds)) {
+            assertBelowLimit(
+                    repository.countCategories(vault.id(), spaceId),
+                    quota.categoryLimitPerSpace(),
+                    "SPACE_CATEGORY_QUOTA_EXCEEDED",
+                    "免费版每个空间最多绑定3个分类");
+        }
         long id = repository.createCategory(vault.id(), name, spaceIds);
         log.info(
                 "event=inventory_structure stage=category_created userId={} categoryId={} spaceCount={}",
@@ -95,7 +116,21 @@ public class InventoryApplicationService {
             long userId,
             long categoryId,
             List<Long> spaceIds) {
-        InventoryVault vault = repository.requireVault(userId);
+        InventoryVault vault = repository.lockVault(userId);
+        MembershipQuota quota = quotaPolicy.quotaFor(userId);
+        Set<Long> current = new HashSet<>(
+                repository.findCategorySpaceIds(
+                        vault.id(),
+                        categoryId));
+        for (Long spaceId : new HashSet<>(spaceIds)) {
+            if (!current.contains(spaceId)) {
+                assertBelowLimit(
+                        repository.countCategories(vault.id(), spaceId),
+                        quota.categoryLimitPerSpace(),
+                        "SPACE_CATEGORY_QUOTA_EXCEEDED",
+                        "免费版每个空间最多绑定3个分类");
+            }
+        }
         repository.updateCategorySpaces(
                 vault.id(),
                 categoryId,
@@ -130,7 +165,11 @@ public class InventoryApplicationService {
                 vault.id(),
                 spaceId,
                 categoryId);
-        vault.assertCanCreateItem(currentCount);
+        assertBelowLimit(
+                currentCount,
+                quotaPolicy.quotaFor(userId).itemLimitPerCavity(),
+                "CAVITY_ITEM_QUOTA_EXCEEDED",
+                "免费版每个分类腔体最多存放10条物品记录");
         InventoryItem item = InventoryItem.create(
                 vault.id(),
                 spaceId,
@@ -262,5 +301,15 @@ public class InventoryApplicationService {
             return 20;
         }
         return Math.min(size, 100);
+    }
+
+    private void assertBelowLimit(
+            int current,
+            Integer limit,
+            String code,
+            String message) {
+        if (limit != null && current >= limit) {
+            throw new ApplicationException(code, message);
+        }
     }
 }

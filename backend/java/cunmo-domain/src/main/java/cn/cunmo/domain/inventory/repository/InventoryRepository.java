@@ -37,6 +37,20 @@ public interface InventoryRepository {
      */
     int countItems(VaultId vaultId, long spaceId, long categoryId);
 
+    default int countSpaces(VaultId vaultId) {
+        return 0;
+    }
+
+    default int countCategories(VaultId vaultId, long spaceId) {
+        return 0;
+    }
+
+    default List<Long> findCategorySpaceIds(
+            VaultId vaultId,
+            long categoryId) {
+        return List.of();
+    }
+
     /**
      * 保存新物品并写入初始流水。
      */

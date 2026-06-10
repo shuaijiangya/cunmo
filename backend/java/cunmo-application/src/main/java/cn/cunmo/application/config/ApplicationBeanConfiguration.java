@@ -5,6 +5,13 @@ import cn.cunmo.application.user.service.UserProfileApplicationService;
 import cn.cunmo.application.inventory.query.InventoryQueryService;
 import cn.cunmo.application.inventory.service.InventoryApplicationService;
 import cn.cunmo.application.inventory.service.InventoryDeletionApplicationService;
+import cn.cunmo.application.membership.port.MembershipPaymentGateway;
+import cn.cunmo.application.membership.port.MembershipRepository;
+import cn.cunmo.application.membership.port.MembershipSettings;
+import cn.cunmo.application.membership.service.AdminMembershipApplicationService;
+import cn.cunmo.application.membership.service.MembershipApplicationService;
+import cn.cunmo.application.membership.service.MembershipQuotaPolicy;
+import cn.cunmo.application.membership.service.MembershipRenewalService;
 import cn.cunmo.domain.auth.repository.UserRepository;
 import cn.cunmo.domain.inventory.repository.InventoryDeletionRepository;
 import cn.cunmo.domain.inventory.repository.InventoryRepository;
@@ -47,10 +54,12 @@ public class ApplicationBeanConfiguration {
     @Bean
     InventoryApplicationService inventoryApplicationService(
             InventoryRepository inventoryRepository,
-            InventoryQueryService inventoryQueryService) {
+            InventoryQueryService inventoryQueryService,
+            MembershipQuotaPolicy membershipQuotaPolicy) {
         return new InventoryApplicationService(
                 inventoryRepository,
-                inventoryQueryService);
+                inventoryQueryService,
+                membershipQuotaPolicy);
     }
 
     /**
@@ -64,5 +73,45 @@ public class ApplicationBeanConfiguration {
         return new InventoryDeletionApplicationService(
                 inventoryRepository,
                 deletionRepository);
+    }
+
+    @Bean
+    MembershipQuotaPolicy membershipQuotaPolicy(
+            MembershipRepository repository,
+            Clock clock) {
+        return new MembershipQuotaPolicy(repository, clock);
+    }
+
+    @Bean
+    MembershipApplicationService membershipApplicationService(
+            MembershipRepository repository,
+            MembershipPaymentGateway paymentGateway,
+            MembershipSettings settings,
+            Clock clock) {
+        return new MembershipApplicationService(
+                repository,
+                paymentGateway,
+                settings,
+                clock);
+    }
+
+    @Bean
+    AdminMembershipApplicationService adminMembershipApplicationService(
+            MembershipRepository repository,
+            Clock clock) {
+        return new AdminMembershipApplicationService(repository, clock);
+    }
+
+    @Bean
+    MembershipRenewalService membershipRenewalService(
+            MembershipRepository repository,
+            MembershipPaymentGateway paymentGateway,
+            MembershipSettings settings,
+            Clock clock) {
+        return new MembershipRenewalService(
+                repository,
+                paymentGateway,
+                settings,
+                clock);
     }
 }

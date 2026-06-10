@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `inv_vault` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '魔方域主键',
   `owner_user_id` BIGINT UNSIGNED NOT NULL COMMENT '域所有者用户主键，关联 sys_user.id',
   `vault_name` VARCHAR(64) NOT NULL COMMENT '魔方域名称',
-  `item_limit_per_space_category` INT UNSIGNED NULL DEFAULT 20 COMMENT '每个空间分类组合的物品数量上限，NULL 表示无限容量',
+  `item_limit_per_space_category` INT UNSIGNED NULL DEFAULT 10 COMMENT '兼容字段；会员配额策略以 membership_entitlement 为准',
   `status` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT '域状态：1-启用，0-停用',
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
   `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '最后更新时间',

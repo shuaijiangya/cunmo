@@ -51,6 +51,20 @@ public interface SpaceCategoryMapper {
             @Param("vaultId") long vaultId,
             @Param("categoryId") long categoryId);
 
+    @Select("""
+            SELECT COUNT(*)
+            FROM inv_space_category binding
+            JOIN inv_category category
+              ON category.id = binding.category_id
+             AND category.vault_id = binding.vault_id
+             AND category.status = 1 AND category.deleted = 0
+            WHERE binding.vault_id = #{vaultId}
+              AND binding.space_id = #{spaceId}
+            """)
+    int countActiveCategories(
+            @Param("vaultId") long vaultId,
+            @Param("spaceId") long spaceId);
+
     /**
      * 删除指定空间分类绑定。
      */

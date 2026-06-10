@@ -6,6 +6,13 @@
         "navigationBarTitleText": "存量魔方",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/quota/index",
+      "style": {
+        "navigationBarTitleText": "容量与配额",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

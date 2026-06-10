@@ -27,6 +27,30 @@ wechat:
   connect-timeout: 3s
   response-timeout: 5s
 
+membership:
+  contact:
+    customer-service-enabled: ${MEMBERSHIP_CUSTOMER_SERVICE_ENABLED:false}
+    enterprise-wechat-qr-url: ${MEMBERSHIP_ENTERPRISE_WECHAT_QR_URL:}
+    phone: ${MEMBERSHIP_CONTACT_PHONE:}
+  wechat-pay:
+    enabled: ${WECHAT_PAY_ENABLED:false}
+    app-id: ${WECHAT_APP_ID:}
+    mch-id: ${WECHAT_PAY_MCH_ID:}
+    merchant-serial-no: ${WECHAT_PAY_MERCHANT_SERIAL_NO:}
+    merchant-private-key-path: ${WECHAT_PAY_PRIVATE_KEY_PATH:}
+    platform-certificate-path: ${WECHAT_PAY_PLATFORM_CERT_PATH:}
+    api-v3-key: ${WECHAT_PAY_API_V3_KEY:}
+    payment-notify-url: ${WECHAT_PAY_NOTIFY_URL:}
+    response-timeout: 8s
+    renewal:
+      enabled: ${WECHAT_PAY_RENEWAL_ENABLED:false}
+      business-type: ${WECHAT_PAY_RENEWAL_BUSINESS_TYPE:}
+      plan-id: ${WECHAT_PAY_RENEWAL_PLAN_ID:}
+      contract-notify-url: ${WECHAT_PAY_CONTRACT_NOTIFY_URL:}
+      charge-url: ${WECHAT_PAY_RENEWAL_CHARGE_URL:}
+      terminate-url: ${WECHAT_PAY_RENEWAL_TERMINATE_URL:}
+      max-attempts: ${WECHAT_PAY_RENEWAL_MAX_ATTEMPTS:3}
+
 sa-token:
   token-name: Authorization
   token-prefix: Bearer
