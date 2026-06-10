@@ -44,6 +44,7 @@ typings/
 
 # Local verification and assistant artifacts
 .superpowers/
+.worktrees/
 artifacts/
 tmp-*
 *.tmp
