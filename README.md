@@ -33,6 +33,88 @@
 - 联系管理员升级、企业微信二维码、电话和微信客服入口。
 - 管理员升级申请审批 API；本期不包含管理端可视化页面。
 
+## 会员与容量配额
+
+### 套餐与权益
+
+| 套餐 | 产品编码 | 价格 | 有效期 | 库存配额 |
+| --- | --- | ---: | --- | --- |
+| FREE | `FREE` | 免费 | 长期 | 3 个根空间、每空间 3 个分类、每腔体 10 条物品记录 |
+| 月度 PRO | `MONTHLY_PRO` | 9.9 元 | 每次 30 天 | 根空间、分类和腔体物品记录不限量 |
+| 永久 PRO | `LIFETIME_PRO` | 69 元 | 永久 | 根空间、分类和腔体物品记录不限量 |
+
+套餐价格和支付金额以服务端产品定义为准，前端只负责展示和提交产品编码。
+FREE 配额由服务端在库存写事务中强制校验，不能通过绕过小程序页面突破限制。
+
+已有数据在会员到期后不会被删除。用户仍可查询、扣减库存和删除数据，但在数据
+回落至 FREE 配额前不能继续创建超额结构或物品。
+
+### 购买、续费与到期
+
+- 月卡首次购买或过期后续费：从支付成功时间增加 30 天。
+- 月卡未过期时续费：从当前到期时间继续增加 30 天。
+- 自动续费：使用微信普通商户委托代扣，支持签约、扣款、失败重试和解约。
+- 到期处理：接口读取时立即按 FREE 权益处理，定时任务再批量收敛数据库状态。
+- 永久会员：权益永久有效，并终止或停止后续自动扣款。
+- 支付结果：以前端轮询到的服务端订单状态为准，不直接信任
+  `uni.requestPayment` 的成功回调。
+
+主动 JSAPI 支付使用微信支付 API v3；普通商户委托代扣使用 V2 XML 与
+`HMAC-SHA256`。支付、签约和扣款通知均校验 AppID、商户号、金额及本地业务状态，
+并通过通知记录与订单状态实现幂等。
+
+自动续费依赖商户已开通委托代扣能力。配置不完整时，看板返回
+`renewal.supported = false` 并隐藏自动续费入口，但 9.9 元月卡仍可手动购买和续费。
+
+### 用户端与管理员接口
+
+用户端：
+
+```text
+GET  /api/membership/dashboard
+POST /api/membership/orders
+GET  /api/membership/orders/{orderNo}
+POST /api/membership/renewal-agreements
+POST /api/membership/renewal-agreements/terminate
+POST /api/membership/upgrade-requests
+```
+
+微信支付回调：
+
+```text
+POST /api/wechat-pay/payment-notify
+POST /api/wechat-pay/contract-notify
+POST /api/wechat-pay/renewal-notify
+```
+
+管理员升级申请 API：
+
+```text
+GET  /api/admin/membership/upgrade-requests
+POST /api/admin/membership/upgrade-requests/{id}/approve
+POST /api/admin/membership/upgrade-requests/{id}/reject
+```
+
+管理员接口要求 `membership:upgrade:review` 权限，可授予自定义月数或永久会员。
+当前只提供管理员 API，不包含管理端可视化页面。用户可在容量看板提交升级申请，
+也可通过已配置的微信客服、企业微信二维码或电话联系管理员。
+
+### 数据库与配置
+
+会员功能由 `backend/mysql/006_membership_quota.sql` 提供数据结构，包括：
+
+- `membership_entitlement`：当前会员权益。
+- `membership_order`：月卡和永久会员订单。
+- `membership_renewal_agreement`：自动续费协议。
+- `membership_renewal_attempt`：代扣尝试与失败记录。
+- `membership_upgrade_request`：联系管理员升级申请。
+- `membership_payment_notification`：支付与签约通知幂等记录。
+
+基础支付至少需要配置商户号、商户证书、API v3 密钥和支付通知地址。自动续费还需
+配置 API v2 密钥、签约计划、签约/扣款通知地址、服务端公网出口 IP，以及商户实际
+获批产品对应的扣款和解约 URL。完整变量见
+[`backend/java/.env.example`](backend/java/.env.example)。
+
 ## 技术栈
 
 | 区域 | 技术 |
@@ -52,7 +134,7 @@
 ├── src/                        # uni-app 前端源码
 │   ├── components/             # 页面组件
 │   ├── pages/                  # 小程序页面
-│   ├── services/               # HTTP、登录、资料和库存 API
+│   ├── services/               # HTTP、登录、库存、会员和支付编排
 │   ├── stores/                 # Pinia 状态
 │   └── types/                  # TypeScript 类型
 ├── backend/
@@ -329,7 +411,7 @@ Micrometer 在应用内只保存计数器和计时器的聚合状态，不保存
 
 | 现状 | 形成原因 | 影响 | 建议 |
 | --- | --- | --- | --- |
-| RBAC 表、角色和权限快照已经存在，但 Controller 未执行角色或权限码校验 | 第一阶段优先打通微信登录和库存数据隔离，权限先作为模型和登录返回值落地 | 登录用户原则上可以调用全部普通业务接口，权限配置暂时不具备执行力 | 增加 Sa-Token 权限读取实现和接口级校验，并补权限拒绝测试 |
+| RBAC 表、角色和权限快照已经存在，但普通库存 Controller 尚未普遍执行权限码校验；管理员会员接口已校验 `membership:upgrade:review` | 第一阶段优先打通微信登录和库存数据隔离，随后只为管理员会员审批补充了权限执行 | 普通登录用户原则上仍可调用全部普通库存业务接口 | 将管理员接口使用的权限端口扩展到其他敏感接口，并补权限拒绝测试 |
 | Sa-Token 登录态使用当前默认存储，未接入 Redis | 当前运行目标是单实例本地开发 | 多实例部署时登录态不能可靠共享，重启后的会话行为也依赖本地实现 | 上线多实例前接入 Redis，并明确并发登录和续期策略 |
 | 头像保存在本地目录 | 先满足微信头像上传的最小闭环，并通过 `AvatarStorage` 预留了端口 | 容器重建、多实例和 CDN 场景下文件不可共享 | 用对象存储实现替换 `LocalAvatarStorage`，保留应用端口不变 |
 | 数据库变更由编号 SQL 人工执行，`005` 不是幂等脚本 | 项目仍处于快速建模阶段，尚未引入迁移工具 | 环境容易漏执行、重复执行或出现结构漂移 | 引入 Flyway 或 Liquibase，把已有脚本纳入版本基线 |
@@ -383,6 +465,8 @@ Micrometer 在应用内只保存计数器和计时器的聚合状态，不保存
 - [库存删除与迁移设计](docs/superpowers/specs/2026-06-06-inventory-deletion-design.md)
 - [延迟登录与游客体验设计](docs/superpowers/specs/2026-06-08-deferred-auth-design.md)
 - [认证监控与退出设计](docs/superpowers/specs/2026-06-08-auth-monitoring-logout-design.md)
+- [容量配额与会员商业化设计](docs/superpowers/specs/2026-06-10-membership-quota-dashboard-design.md)
+- [容量配额与会员实施计划](docs/superpowers/plans/2026-06-10-membership-quota-dashboard.md)
 
 ## 项目阶段判断
 
