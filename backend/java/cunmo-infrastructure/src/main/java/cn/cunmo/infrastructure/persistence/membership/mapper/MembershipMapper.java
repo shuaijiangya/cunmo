@@ -312,6 +312,22 @@ public interface MembershipMapper {
             @Param("retryAt") Instant retryAt,
             @Param("maxAttempts") int maxAttempts);
 
+    @Update("""
+            UPDATE membership_entitlement
+            SET plan_type = 'FREE',
+                effective_at = NULL,
+                expires_at = NULL,
+                source_reference = 'EXPIRED',
+                version = version + 1
+            WHERE plan_type = 'MONTHLY_PRO'
+              AND expires_at <= #{expiredAt}
+            ORDER BY id
+            LIMIT #{limit}
+            """)
+    int expireMonthlyEntitlements(
+            @Param("expiredAt") Instant expiredAt,
+            @Param("limit") int limit);
+
     @Select("""
             SELECT id, user_id AS userId, contact, remark, status,
                    grant_type AS grantType, grant_months AS grantMonths,

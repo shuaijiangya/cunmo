@@ -130,38 +130,23 @@ const toggleRenewal = async () => {
 const startRenewalAgreement = async () => {
   const agreement = await membershipApi.createRenewalAgreement();
   await openRenewalContract(
-    agreement.businessType,
-    agreement.invokeParams
+    agreement.appId,
+    agreement.path,
+    agreement.extraData
   );
 };
 
 const openRenewalContract = (
-  businessType: string,
-  invokeParams: Record<string, string>
+  appId: string,
+  path: string,
+  extraData: Record<string, string>
 ) =>
   new Promise<void>((resolve, reject) => {
-    const businessView = (
-      wx as unknown as {
-        openBusinessView?: (options: {
-          businessType: string;
-          queryString: string;
-          success: () => void;
-          fail: (error: unknown) => void;
-        }) => void;
-      }
-    ).openBusinessView;
-    if (!businessView) {
-      reject(new Error('当前微信版本不支持自动续费签约'));
-      return;
-    }
-    businessView({
-      businessType,
-      queryString: Object.entries(invokeParams)
-        .map(
-          ([key, value]) =>
-            `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
-        )
-        .join('&'),
+    uni.navigateToMiniProgram({
+      appId,
+      path,
+      extraData,
+      envVersion: 'release',
       success: resolve,
       fail: reject
     });

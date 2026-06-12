@@ -117,7 +117,8 @@ PRO 用户上述三项均无限。
 
 ## 7. 支付与自动续费
 
-系统使用微信支付普通直连商户模式和 API v3。
+系统使用微信支付普通直连商户模式。主动 JSAPI 支付使用 API v3；普通商户
+委托代扣沿用微信支付 V2 XML 协议，两类协议不得混用。
 
 ### 7.1 主动支付
 
@@ -137,14 +138,22 @@ PRO 用户上述三项均无限。
 - 权限与配置完整：看板返回 `renewal.supported = true`。
 - 权限缺失或功能关闭：返回 `false`，前端隐藏自动续费开关，月卡手动续费不受影响。
 
-流程包括签约、签约回调、到期前通知、服务端扣款、扣款回调、失败重试和用户解约。扣款失败按可配置策略重试，超过次数后停止本周期重试；月卡到期后自动降级为 FREE。
+签约参数使用 V2 `HMAC-SHA256` 生成，前端通过
+`uni.navigateToMiniProgram` 跳转微信签约小程序；签约、扣款和解约接口使用
+V2 XML。扣款/解约 URL 由商户获批的委托代扣产品决定，必须通过服务端配置提供，
+不能假设所有普通商户使用同一个接口。
+
+流程包括签约、签约回调、服务端到期扣款、扣款回调、失败重试和用户解约。
+扣款失败按可配置策略重试，超过次数后停止本周期重试；月卡到期后读取立即按
+FREE 处理，定时任务再将持久化状态批量收敛为 FREE。
 
 ### 7.3 幂等与安全
 
-- 微信回调必须验证平台证书签名并使用 APIv3 密钥解密。
+- JSAPI API v3 回调必须验证平台证书签名并使用 APIv3 密钥解密。
+- 委托代扣 V2 回调必须验证 XML 中的 `HMAC-SHA256` 签名。
 - 重复通知不得重复增加权益。
 - 金额、商户号、AppID、订单号和产品必须与本地订单匹配。
-- 原始商户 APIv3 密钥、证书私钥和签约模板信息仅来自服务端配置。
+- APIv2/APIv3 密钥、证书私钥和签约模板信息仅来自服务端配置。
 - 永久会员不得继续自动扣款。
 
 ## 8. API 契约
@@ -253,6 +262,20 @@ interface MembershipContact {
 
 创建订单响应包含 `orderNo`、`status` 和小程序调起支付所需 `paymentParams`。订单查询返回权威支付状态和最新权益摘要。
 
+创建续费协议响应字段为：
+
+```ts
+interface RenewalAgreementResponse {
+  contractCode: string
+  appId: string
+  path: string
+  extraData: Record<string, string>
+}
+```
+
+其中 `appId/path/extraData` 直接用于 `uni.navigateToMiniProgram`，前端不得重新
+计算 V2 签名。
+
 ## 9. 前端页面
 
 新增 `src/pages/quota/index.vue` 并注册到 `src/pages.json`。页面使用 Vue 3 Composition API 和 TypeScript，业务类型放入 `src/types/membership.ts`，请求封装放入 `src/services/membershipApi.ts`。
@@ -312,3 +335,9 @@ interface MembershipContact {
 - 支付和代扣重复回调不会重复增加权益。
 - 管理员可通过 API 审批自定义月数或永久权益。
 - 后端 JSON 字段与前端 TypeScript interface 完全一致。
+
+## 13. 实现状态
+
+截至 2026-06-12，本设计的用户端看板、9.9 元月卡、69 元永久会员、手动续费、
+普通商户委托代扣、到期降级、严格配额、联系管理员升级及管理员审批 API 已实现。
+管理端可视化页面仍明确不在本期范围内。

@@ -1,17 +1,17 @@
-# 存魔 Java 微信登录后端
+# 存魔 Java 后端
 
 后端统一使用 Java 21、Spring Boot、MyBatis-Plus、Sa-Token 与 MySQL，
 采用 DDD 模块化单体架构。
-启动服务前先执行 `mysql/001_wechat_users.sql`。
+启动服务前按顺序执行数据库迁移。
 
 ## 工程模块
 
 ```text
 java
 ├── cunmo-api             # HTTP 请求与响应契约
-├── cunmo-domain          # 用户聚合、角色权限模型和领域端口
-├── cunmo-application     # 微信登录应用用例与 Token 端口
-├── cunmo-infrastructure  # MySQL、微信 API、Sa-Token 实现
+├── cunmo-domain          # 用户、库存、会员聚合和领域端口
+├── cunmo-application     # 登录、库存、会员用例与应用端口
+├── cunmo-infrastructure  # MySQL、微信登录/支付、Sa-Token 实现
 ├── cunmo-trigger         # Controller 与统一异常处理
 └── cunmo-bootstrap       # Spring Boot 启动和运行配置
 ```
@@ -24,6 +24,8 @@ MyBatis、Sa-Token 或微信 HTTP 实现。
 1. `mysql/001_wechat_users.sql`
 2. `mysql/002_rbac_seed.sql`
 3. `mysql/003_inventory_domain.sql`
+4. `mysql/005_inventory_deletion.sql`
+5. `mysql/006_membership_quota.sql`
 
 本地需要验证透视镜和流转轴分页时，先登录并调用一次
 `GET /api/inventory/bootstrap`，再执行
@@ -36,13 +38,41 @@ MyBatis、Sa-Token 或微信 HTTP 实现。
 - `POST /api/inventory/categories`：创建分类并绑定多个空间
 - `PUT /api/inventory/categories/{categoryId}/spaces`：更新分类空间绑定
 - `GET /api/inventory/items`：按空间、分类、关键词和游标查询物品
-- `POST /api/inventory/items`：创建物品，普通用户每个空间分类组合最多 20 个
+- `POST /api/inventory/items`：创建物品，FREE 用户每个空间分类组合最多 10 条记录
 - `POST /api/inventory/items/{itemId}/adjustments`：增减库存并同步写入流水
 - `GET /api/inventory/analytics`：按空间或分类查询透视统计
 - `GET /api/inventory/transactions`：按游标查询不可变库存流水
 
 所有库存接口均使用当前登录用户的 `vault_id` 隔离数据。表之间只保存关联
 主键和索引，不创建数据库外键；关联有效性由应用事务和领域规则保证。
+
+FREE 用户最多创建 3 个根空间、每个空间最多绑定 3 个分类、每个
+“空间 + 分类”腔体最多保存 10 条有效物品记录。月度或永久 PRO 不受这三项限制。
+
+## 会员与配额接口
+
+- `GET /api/membership/dashboard`：返回权益、配额、套餐、续费和联系方式
+- `POST /api/membership/orders`：创建 9.9 元月卡或 69 元永久会员订单
+- `GET /api/membership/orders/{orderNo}`：查询权威支付状态
+- `POST /api/membership/renewal-agreements`：创建委托代扣签约参数
+- `POST /api/membership/renewal-agreements/terminate`：终止自动续费
+- `POST /api/membership/upgrade-requests`：提交联系管理员升级申请
+
+微信回调：
+
+- `POST /api/wechat-pay/payment-notify`：JSAPI API v3 JSON 回调
+- `POST /api/wechat-pay/contract-notify`：委托代扣 V2 XML 签约回调
+- `POST /api/wechat-pay/renewal-notify`：委托代扣 V2 XML 扣款回调
+
+主动支付使用微信支付 API v3 RSA 验签与 AES-GCM 解密。普通商户委托代扣使用
+V2 XML 和 `HMAC-SHA256`，小程序通过微信签约小程序完成签约。两类回调都会核对
+`appid`、商户号、订单金额和本地业务状态，并通过通知表与订单状态双重幂等。
+
+月卡每次增加 30 天，未过期续费从原到期时间顺延。到期时读取立即按 FREE
+处理，定时任务按批次将数据库权益收敛为 FREE。永久会员生效后会终止自动续费。
+
+管理员审批接口位于 `/api/admin/membership/**`，需要
+`membership:upgrade:review` 权限。本期只提供 API，不包含管理端页面。
 
 ## 登录协议
 
@@ -153,7 +183,30 @@ DATABASE_URL=jdbc:mysql://127.0.0.1:3306/cunmo
 DATABASE_USERNAME=cunmo
 DATABASE_PASSWORD=replace_me
 TOKEN_TTL_SECONDS=7200
+MEMBERSHIP_CUSTOMER_SERVICE_ENABLED=false
+MEMBERSHIP_ENTERPRISE_WECHAT_QR_URL=
+MEMBERSHIP_CONTACT_PHONE=
+WECHAT_PAY_ENABLED=false
+WECHAT_PAY_MCH_ID=
+WECHAT_PAY_MERCHANT_SERIAL_NO=
+WECHAT_PAY_PRIVATE_KEY_PATH=
+WECHAT_PAY_PLATFORM_CERT_PATH=
+WECHAT_PAY_API_V3_KEY=
+WECHAT_PAY_API_V2_KEY=
+WECHAT_PAY_NOTIFY_URL=https://example.com/api/wechat-pay/payment-notify
+WECHAT_PAY_RENEWAL_ENABLED=false
+WECHAT_PAY_RENEWAL_PLAN_ID=
+WECHAT_PAY_RENEWAL_DISPLAY_ACCOUNT=
+WECHAT_PAY_CONTRACT_NOTIFY_URL=https://example.com/api/wechat-pay/contract-notify
+WECHAT_PAY_RENEWAL_NOTIFY_URL=https://example.com/api/wechat-pay/renewal-notify
+WECHAT_PAY_RENEWAL_CLIENT_IP=<服务端公网出口IP>
+WECHAT_PAY_RENEWAL_CHARGE_URL=
+WECHAT_PAY_RENEWAL_TERMINATE_URL=
 ```
+
+委托代扣的扣款和解约 URL 取决于商户实际获批的产品能力，必须填写微信商户平台
+提供的正式接口地址；`WECHAT_PAY_RENEWAL_CLIENT_IP` 填服务端公网出口 IP。
+任一必需配置缺失时自动续费能力关闭，不影响手动购买。
 
 Java 使用 Sa-Token 配置生成业务 Token；生产集群应按 Sa-Token
 官方方式接入 Redis 共享登录态。

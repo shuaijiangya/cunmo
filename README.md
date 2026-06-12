@@ -26,6 +26,12 @@
 - 不可变库存流水与位置快照。
 - 物品、空间和分类的删除影响预览。
 - 删除结构时选择批量迁移或清零删除，并在事务中写入流水。
+- 容量与配额看板，以及 FREE 用户 3 个根空间、每空间 3 个分类、
+  每腔体 10 条物品记录的服务端强制限制。
+- 9.9 元月度 PRO、69 元永久 PRO、手动续费和到期自动降级。
+- 微信 JSAPI 支付、普通商户委托代扣签约/扣款/解约，以及重复回调幂等。
+- 联系管理员升级、企业微信二维码、电话和微信客服入口。
+- 管理员升级申请审批 API；本期不包含管理端可视化页面。
 
 ## 技术栈
 
@@ -87,11 +93,14 @@ backend/mysql/001_wechat_users.sql
 backend/mysql/002_rbac_seed.sql
 backend/mysql/003_inventory_domain.sql
 backend/mysql/005_inventory_deletion.sql
+backend/mysql/006_membership_quota.sql
 ```
 
 `004_inventory_seed.sql` 仅用于本地联调。使用它之前，必须先登录并调用一次 `GET /api/inventory/bootstrap`，让系统创建当前用户的默认魔方域。
 
-当前脚本需要人工按顺序执行。`005_inventory_deletion.sql` 是非幂等 `ALTER TABLE`，不要对同一数据库重复执行。
+当前脚本需要人工按顺序执行。`005_inventory_deletion.sql` 是非幂等
+`ALTER TABLE`，不要对同一数据库重复执行。`006_membership_quota.sql`
+创建会员、订单、自动续费与升级申请表，并将免费版腔体容量统一为 10。
 
 ### 3. 启动 Java 后端
 
@@ -113,6 +122,10 @@ TOKEN_TTL_SECONDS=7200
 SERVER_PORT=8080
 AVATAR_STORAGE_DIRECTORY=./data/uploads/avatars
 ```
+
+会员支付和联系方式配置见
+[`backend/java/.env.example`](backend/java/.env.example)。未完整配置普通商户
+委托代扣参数时，后端会返回 `renewal.supported = false`，小程序仍支持月卡手动续费。
 
 构建并启动：
 

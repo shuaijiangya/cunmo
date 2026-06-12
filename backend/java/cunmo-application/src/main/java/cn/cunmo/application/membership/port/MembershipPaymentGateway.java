@@ -30,8 +30,9 @@ public interface MembershipPaymentGateway {
             String body);
 
     ContractNotification parseContractNotification(
-            Map<String, String> headers,
             String body);
+
+    PaymentNotification parseRenewalNotification(String body);
 
     boolean renewalSupported();
 
@@ -45,8 +46,9 @@ public interface MembershipPaymentGateway {
     }
 
     record AgreementPreparation(
-            String businessType,
-            Map<String, String> invokeParams) {
+            String appId,
+            String path,
+            Map<String, String> extraData) {
     }
 
     record PaymentNotification(

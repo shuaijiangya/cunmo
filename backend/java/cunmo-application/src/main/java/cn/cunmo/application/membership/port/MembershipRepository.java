@@ -75,6 +75,8 @@ public interface MembershipRepository {
             String transactionId,
             Instant paidAt);
 
+    int expireMonthlyEntitlements(Instant expiredAt, int limit);
+
     UpgradeState createOrGetPendingUpgrade(
             long userId,
             String contact,

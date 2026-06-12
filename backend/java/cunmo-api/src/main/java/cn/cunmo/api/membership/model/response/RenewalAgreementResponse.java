@@ -4,6 +4,7 @@ import java.util.Map;
 
 public record RenewalAgreementResponse(
         String contractCode,
-        String businessType,
-        Map<String, String> invokeParams) {
+        String appId,
+        String path,
+        Map<String, String> extraData) {
 }

@@ -17,6 +17,9 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -38,6 +41,10 @@ public class WechatPayMembershipGateway
         implements MembershipPaymentGateway {
     private static final String JSAPI_PATH =
             "/v3/pay/transactions/jsapi";
+    private static final DateTimeFormatter V2_TIME =
+            DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final ZoneId CHINA_ZONE =
+            ZoneId.of("Asia/Shanghai");
 
     private final MembershipProperties properties;
     private final MembershipRepository repository;
@@ -120,46 +127,40 @@ public class WechatPayMembershipGateway
                     "当前商户尚未开通自动续费能力");
         }
         MembershipProperties.WechatPay pay = properties.wechatPay();
-        String timestamp = String.valueOf(
-                Instant.now().getEpochSecond());
-        String nonce = nonce();
+        MembershipProperties.Renewal renewal = pay.renewal();
         Map<String, String> params = new LinkedHashMap<>();
         params.put("appid", pay.appId());
         params.put("mch_id", pay.mchId());
-        params.put("plan_id", pay.renewal().planId());
+        params.put("contract_appid", pay.appId());
+        params.put("contract_mchid", pay.mchId());
+        params.put("plan_id", renewal.planId());
         params.put("contract_code", contractCode);
-        params.put(
-                "contract_notify_url",
-                pay.renewal().contractNotifyUrl());
+        params.put("request_serial", contractCode);
+        params.put("contract_display_account",
+                renewal.contractDisplayAccount());
+        params.put("notify_url", renewal.contractNotifyUrl());
         params.put("openid", repository.requireWechatOpenId(userId));
-        params.put("timestamp", timestamp);
-        params.put("nonce_str", nonce);
-        params.put("sign", sign(canonical(params)));
+        params.put("timestamp", String.valueOf(
+                Instant.now().getEpochSecond()));
+        params.put("return_web", "1");
+        params.put("version", "1.0");
+        params.put("sign_type", "HMAC-SHA256");
         return new AgreementPreparation(
-                pay.renewal().businessType(),
-                Map.copyOf(params));
+                renewal.signingMiniProgramAppId(),
+                renewal.signingPath(),
+                WechatPayV2Codec.copyWithSignature(
+                        params,
+                        renewal.apiV2Key()));
     }
 
     @Override
     public void terminateRenewalAgreement(String wechatContractId) {
         if (!renewalSupported()) return;
         MembershipProperties.WechatPay pay = properties.wechatPay();
-        String url = pay.renewal().terminateUrl();
-        String path = java.net.URI.create(url).getRawPath();
-        String body = json(Map.of(
-                "mchid", pay.mchId(),
-                "contract_id", wechatContractId));
-        WebClient.create().post()
-                .uri(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .header(
-                        "Authorization",
-                        authorization("POST", path, body))
-                .bodyValue(body)
-                .retrieve()
-                .toBodilessEntity()
-                .timeout(pay.responseTimeout())
-                .block();
+        Map<String, String> params = baseV2Params(pay);
+        params.put("contract_id", wechatContractId);
+        params.put("plan_id", pay.renewal().planId());
+        postV2(pay.renewal().terminateUrl(), params);
     }
 
     @Override
@@ -174,27 +175,15 @@ public class WechatPayMembershipGateway
                     "当前商户尚未开通自动续费能力");
         }
         MembershipProperties.WechatPay pay = properties.wechatPay();
-        String url = pay.renewal().chargeUrl();
-        String path = java.net.URI.create(url).getRawPath();
-        String body = json(Map.of(
-                "appid", pay.appId(),
-                "mchid", pay.mchId(),
-                "contract_id", wechatContractId,
-                "out_trade_no", attemptNo,
-                "description", "存量魔方月度PRO自动续费",
-                "notify_url", pay.paymentNotifyUrl(),
-                "amount", Map.of("total", amountFen, "currency", "CNY")));
-        WebClient.create().post()
-                .uri(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .header(
-                        "Authorization",
-                        authorization("POST", path, body))
-                .bodyValue(body)
-                .retrieve()
-                .toBodilessEntity()
-                .timeout(pay.responseTimeout())
-                .block();
+        Map<String, String> params = baseV2Params(pay);
+        params.put("contract_id", wechatContractId);
+        params.put("body", "存量魔方月度PRO自动续费");
+        params.put("out_trade_no", attemptNo);
+        params.put("total_fee", String.valueOf(amountFen));
+        params.put("spbill_create_ip", pay.renewal().clientIp());
+        params.put("notify_url", pay.renewal().renewalNotifyUrl());
+        params.put("trade_type", "PAP");
+        postV2(pay.renewal().chargeUrl(), params);
     }
 
     @Override
@@ -203,6 +192,7 @@ public class WechatPayMembershipGateway
             String body) {
         JsonNode root = verifiedNotification(headers, body);
         JsonNode resource = decryptResource(root.path("resource"));
+        verifyV3Identity(resource);
         JsonNode amount = resource.path("amount");
         return new PaymentNotification(
                 text(root, "id"),
@@ -216,19 +206,31 @@ public class WechatPayMembershipGateway
 
     @Override
     public ContractNotification parseContractNotification(
-            Map<String, String> headers,
             String body) {
-        JsonNode root = verifiedNotification(headers, body);
-        JsonNode resource = decryptResource(root.path("resource"));
-        String occurredAt = resource.path("success_time")
-                .asText(Instant.now().toString());
+        Map<String, String> values = verifiedV2Notification(body);
+        String contractCode = required(values, "contract_code");
+        String status = contractStatus(values);
         return new ContractNotification(
-                text(root, "id"),
-                text(resource, "contract_code"),
-                text(resource, "contract_id"),
-                resource.path("contract_state")
-                        .asText(resource.path("status").asText()),
-                Instant.parse(occurredAt));
+                notificationId("V2C", body),
+                contractCode,
+                required(values, "contract_id"),
+                status,
+                parseV2Time(values.get("operate_time")));
+    }
+
+    @Override
+    public PaymentNotification parseRenewalNotification(String body) {
+        Map<String, String> values = verifiedV2Notification(body);
+        String result = values.getOrDefault(
+                "result_code",
+                values.getOrDefault("return_code", "FAIL"));
+        return new PaymentNotification(
+                notificationId("V2R", body),
+                required(values, "out_trade_no"),
+                required(values, "transaction_id"),
+                parseInt(values, "total_fee"),
+                "SUCCESS".equals(result) ? "SUCCESS" : result,
+                parseV2Time(values.get("time_end")));
     }
 
     @Override
@@ -349,13 +351,167 @@ public class WechatPayMembershipGateway
         }
     }
 
-    private String canonical(Map<String, String> values) {
-        return values.entrySet().stream()
-                .filter(entry -> !"sign".equals(entry.getKey()))
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .reduce((left, right) -> left + "&" + right)
-                .orElse("");
+    private Map<String, String> baseV2Params(
+            MembershipProperties.WechatPay pay) {
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("appid", pay.appId());
+        params.put("mch_id", pay.mchId());
+        params.put("contract_appid", pay.appId());
+        params.put("contract_mchid", pay.mchId());
+        params.put("nonce_str", nonce());
+        params.put("sign_type", "HMAC-SHA256");
+        return params;
+    }
+
+    private void postV2(
+            String url,
+            Map<String, String> params) {
+        MembershipProperties.WechatPay pay = properties.wechatPay();
+        Map<String, String> signed =
+                WechatPayV2Codec.copyWithSignature(
+                        params,
+                        pay.renewal().apiV2Key());
+        String responseBody = WebClient.create().post()
+                .uri(url)
+                .contentType(MediaType.APPLICATION_XML)
+                .bodyValue(WechatPayV2Codec.toXml(signed))
+                .retrieve()
+                .bodyToMono(String.class)
+                .timeout(pay.responseTimeout())
+                .block();
+        Map<String, String> response =
+                WechatPayV2Codec.parseXml(responseBody);
+        if (response.containsKey("sign")) {
+            WechatPayV2Codec.verify(
+                    response,
+                    pay.renewal().apiV2Key());
+        }
+        if (!"SUCCESS".equals(response.get("return_code"))
+                || (response.containsKey("result_code")
+                && !"SUCCESS".equals(response.get("result_code")))) {
+            throw new ApplicationException(
+                    "WECHAT_PAY_FAILED",
+                    response.getOrDefault(
+                            "err_code_des",
+                            response.getOrDefault(
+                                    "return_msg",
+                                    "微信委托代扣请求失败")));
+        }
+    }
+
+    private Map<String, String> verifiedV2Notification(String body) {
+        if (!renewalSupported()) {
+            throw new ApplicationException(
+                    "RENEWAL_NOT_SUPPORTED",
+                    "当前商户尚未开通自动续费能力");
+        }
+        Map<String, String> values =
+                WechatPayV2Codec.parseXml(body);
+        WechatPayV2Codec.verify(
+                values,
+                properties.wechatPay().renewal().apiV2Key());
+        verifyV2Identity(values);
+        return values;
+    }
+
+    private void verifyV3Identity(JsonNode resource) {
+        requireIdentity(
+                resource.path("appid").asText(),
+                properties.wechatPay().appId(),
+                "appid");
+        requireIdentity(
+                resource.path("mchid").asText(),
+                properties.wechatPay().mchId(),
+                "mchid");
+    }
+
+    private void verifyV2Identity(Map<String, String> values) {
+        String appId = values.getOrDefault(
+                "appid",
+                values.get("contract_appid"));
+        String mchId = values.getOrDefault(
+                "mch_id",
+                values.get("contract_mchid"));
+        requireIdentity(
+                appId,
+                properties.wechatPay().appId(),
+                "appid");
+        requireIdentity(
+                mchId,
+                properties.wechatPay().mchId(),
+                "mch_id");
+    }
+
+    private void requireIdentity(
+            String actual,
+            String expected,
+            String field) {
+        if (!expected.equals(actual)) {
+            throw new ApplicationException(
+                    "WECHAT_PAYMENT_MISMATCH",
+                    "微信支付通知商户身份不匹配: " + field);
+        }
+    }
+
+    private String contractStatus(Map<String, String> values) {
+        String status = values.getOrDefault(
+                "contract_state",
+                values.getOrDefault("change_type", ""));
+        return switch (status.toUpperCase(Locale.ROOT)) {
+            case "0", "ADD", "SIGNED", "ACTIVE" -> "SIGNED";
+            case "1", "DELETE", "TERMINATED" -> "TERMINATED";
+            default -> status.toUpperCase(Locale.ROOT);
+        };
+    }
+
+    private Instant parseV2Time(String value) {
+        if (value == null || value.isBlank()) return Instant.now();
+        try {
+            return LocalDateTime.parse(value, V2_TIME)
+                    .atZone(CHINA_ZONE)
+                    .toInstant();
+        } catch (RuntimeException ignored) {
+            return Instant.parse(value);
+        }
+    }
+
+    private int parseInt(
+            Map<String, String> values,
+            String field) {
+        try {
+            return Integer.parseInt(required(values, field));
+        } catch (NumberFormatException error) {
+            throw paymentError(
+                    "微信支付数据字段格式无效: " + field,
+                    error);
+        }
+    }
+
+    private String required(
+            Map<String, String> values,
+            String field) {
+        String value = values.get(field);
+        if (value == null || value.isBlank()) {
+            throw new ApplicationException(
+                    "INVALID_WECHAT_PAY_PAYLOAD",
+                    "微信支付数据缺少字段: " + field);
+        }
+        return value;
+    }
+
+    private String notificationId(
+            String prefix,
+            String body) {
+        try {
+            byte[] digest = java.security.MessageDigest
+                    .getInstance("SHA-256")
+                    .digest(body.getBytes(StandardCharsets.UTF_8));
+            return prefix + java.util.HexFormat.of()
+                    .formatHex(digest)
+                    .substring(0, 48);
+        } catch (Exception error) {
+            throw paymentError("微信支付通知标识生成失败", error);
+        }
     }
 
     private String header(

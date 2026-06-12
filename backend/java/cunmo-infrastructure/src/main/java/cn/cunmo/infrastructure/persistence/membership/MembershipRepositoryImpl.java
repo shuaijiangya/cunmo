@@ -249,6 +249,13 @@ public class MembershipRepositoryImpl implements MembershipRepository {
     }
 
     @Override
+    public int expireMonthlyEntitlements(
+            Instant expiredAt,
+            int limit) {
+        return mapper.expireMonthlyEntitlements(expiredAt, limit);
+    }
+
+    @Override
     public UpgradeState createOrGetPendingUpgrade(
             long userId,
             String contact,

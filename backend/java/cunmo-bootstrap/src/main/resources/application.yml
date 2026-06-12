@@ -28,6 +28,7 @@ wechat:
   response-timeout: 5s
 
 membership:
+  expiration-scan-delay: ${MEMBERSHIP_EXPIRATION_SCAN_DELAY:PT10M}
   contact:
     customer-service-enabled: ${MEMBERSHIP_CUSTOMER_SERVICE_ENABLED:false}
     enterprise-wechat-qr-url: ${MEMBERSHIP_ENTERPRISE_WECHAT_QR_URL:}
@@ -44,11 +45,16 @@ membership:
     response-timeout: 8s
     renewal:
       enabled: ${WECHAT_PAY_RENEWAL_ENABLED:false}
-      business-type: ${WECHAT_PAY_RENEWAL_BUSINESS_TYPE:}
+      api-v2-key: ${WECHAT_PAY_API_V2_KEY:}
+      signing-mini-program-app-id: ${WECHAT_PAY_RENEWAL_SIGNING_APP_ID:wxbd687630cd02ce1d}
+      signing-path: ${WECHAT_PAY_RENEWAL_SIGNING_PATH:pages/index/index}
       plan-id: ${WECHAT_PAY_RENEWAL_PLAN_ID:}
       contract-notify-url: ${WECHAT_PAY_CONTRACT_NOTIFY_URL:}
+      renewal-notify-url: ${WECHAT_PAY_RENEWAL_NOTIFY_URL:}
+      client-ip: ${WECHAT_PAY_RENEWAL_CLIENT_IP:}
       charge-url: ${WECHAT_PAY_RENEWAL_CHARGE_URL:}
       terminate-url: ${WECHAT_PAY_RENEWAL_TERMINATE_URL:}
+      contract-display-account: ${WECHAT_PAY_RENEWAL_DISPLAY_ACCOUNT:}
       max-attempts: ${WECHAT_PAY_RENEWAL_MAX_ATTEMPTS:3}
 
 sa-token:

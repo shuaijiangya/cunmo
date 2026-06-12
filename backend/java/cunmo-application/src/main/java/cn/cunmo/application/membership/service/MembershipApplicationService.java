@@ -185,6 +185,14 @@ public class MembershipApplicationService {
                 notification.contractCode())) {
             return;
         }
+        if ("TERMINATED".equals(notification.status())) {
+            repository.findRenewalByContractCode(
+                            notification.contractCode())
+                    .ifPresent(renewal -> repository.terminateRenewal(
+                            renewal.userId(),
+                            notification.occurredAt()));
+            return;
+        }
         if ("SIGNED".equals(notification.status())
                 || "ACTIVE".equals(notification.status())) {
             MembershipRepository.RenewalState renewal = repository
@@ -236,8 +244,9 @@ public class MembershipApplicationService {
                         contractCode);
         return new RenewalAgreementResponse(
                 contractCode,
-                prepared.businessType(),
-                prepared.invokeParams());
+                prepared.appId(),
+                prepared.path(),
+                prepared.extraData());
     }
 
     @Transactional

@@ -35,8 +35,9 @@ export const createMembershipApi = (request: RequestAdapter) => ({
   createRenewalAgreement: () =>
     request<{
       contractCode: string;
-      businessType: string;
-      invokeParams: Record<string, string>;
+      appId: string;
+      path: string;
+      extraData: Record<string, string>;
     }>({
       url: '/api/membership/renewal-agreements',
       method: 'POST'

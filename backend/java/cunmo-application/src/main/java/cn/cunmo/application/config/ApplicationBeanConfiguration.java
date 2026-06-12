@@ -12,6 +12,7 @@ import cn.cunmo.application.membership.service.AdminMembershipApplicationService
 import cn.cunmo.application.membership.service.MembershipApplicationService;
 import cn.cunmo.application.membership.service.MembershipQuotaPolicy;
 import cn.cunmo.application.membership.service.MembershipRenewalService;
+import cn.cunmo.application.membership.service.MembershipExpirationService;
 import cn.cunmo.domain.auth.repository.UserRepository;
 import cn.cunmo.domain.inventory.repository.InventoryDeletionRepository;
 import cn.cunmo.domain.inventory.repository.InventoryRepository;
@@ -112,6 +113,15 @@ public class ApplicationBeanConfiguration {
                 repository,
                 paymentGateway,
                 settings,
+                clock);
+    }
+
+    @Bean
+    MembershipExpirationService membershipExpirationService(
+            MembershipRepository membershipRepository,
+            Clock clock) {
+        return new MembershipExpirationService(
+                membershipRepository,
                 clock);
     }
 }

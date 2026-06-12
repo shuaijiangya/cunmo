@@ -92,11 +92,16 @@ public record MembershipProperties(
         public boolean renewalConfigured() {
             return paymentConfigured()
                     && renewal.enabled()
-                    && present(renewal.businessType())
+                    && present(renewal.apiV2Key())
+                    && present(renewal.signingMiniProgramAppId())
+                    && present(renewal.signingPath())
                     && present(renewal.planId())
                     && present(renewal.contractNotifyUrl())
+                    && present(renewal.renewalNotifyUrl())
+                    && present(renewal.clientIp())
                     && present(renewal.chargeUrl())
-                    && present(renewal.terminateUrl());
+                    && present(renewal.terminateUrl())
+                    && present(renewal.contractDisplayAccount());
         }
 
         private static boolean present(String value) {
@@ -106,15 +111,31 @@ public record MembershipProperties(
 
     public record Renewal(
             boolean enabled,
-            String businessType,
+            String apiV2Key,
+            String signingMiniProgramAppId,
+            String signingPath,
             String planId,
             String contractNotifyUrl,
+            String renewalNotifyUrl,
+            String clientIp,
             String chargeUrl,
             String terminateUrl,
+            String contractDisplayAccount,
             int maxAttempts) {
         public static Renewal disabled() {
             return new Renewal(
-                    false, null, null, null, null, null, 3);
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    3);
         }
     }
 }
